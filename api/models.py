@@ -27,6 +27,7 @@ class Business(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     contact_phone = models.CharField(max_length=32, blank=True)
+    logo = models.ImageField(upload_to='business_logos/', null=True, blank=True)
     owner_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='businesses')
 
     def __str__(self):
@@ -54,9 +55,81 @@ class Deal(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=['end_time']),
+            models.Index(fields=['title']),
+            models.Index(fields=['category']),
         ]
 
     def __str__(self):
         return self.title
+
+class SavedDeal(models.Model):
+    """
+    Model for users to save deals they're interested in.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_deals')
+    deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name='saved_by')
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'deal']
+        indexes = [
+            models.Index(fields=['user', 'saved_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} saved {self.deal.title}"
+
+class Notification(models.Model):
+    """
+    Notification model for user notifications.
+    """
+    NOTIFICATION_TYPES = (
+        ('deal_expiring', 'Deal Expiring'),
+        ('new_deal', 'New Deal'),
+        ('deal_clicked', 'Deal Clicked'),
+        ('system', 'System'),
+    )
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
+    is_read = models.BooleanField(default=False)
+    related_deal = models.ForeignKey(Deal, on_delete=models.CASCADE, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'is_read']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.user.username}"
+
+class DealAnalytics(models.Model):
+    """
+    Analytics model for tracking deal interactions.
+    """
+    deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name='analytics')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    action_type = models.CharField(max_length=20, choices=[
+        ('view', 'View'),
+        ('click', 'Click'),
+        ('save', 'Save'),
+        ('unsave', 'Unsave'),
+    ])
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['deal', 'action_type']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.deal.title} - {self.action_type}"
 
 # See README.md and inline comments for documentation.

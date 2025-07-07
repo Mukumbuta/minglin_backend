@@ -3,16 +3,19 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
-from .models import User, Business, Deal
-from .serializers import RegisterSerializer, UserSerializer, BusinessSerializer, DealSerializer
+from .models import User, Business, Deal, SavedDeal, Notification, DealAnalytics
+from .serializers import (
+    RegisterSerializer, UserSerializer, BusinessSerializer, DealSerializer,
+    SavedDealSerializer, NotificationSerializer, DealAnalyticsSerializer
+)
 from rest_framework import viewsets, generics, status, permissions, serializers
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.geos import Point
-from django.db.models import Q
-import math
+from django.db.models import Q, Count
 from django.utils import timezone
 import logging
 from django.http import JsonResponse
+from datetime import datetime, timedelta
 
 logger = logging.getLogger('api')
 
@@ -323,6 +326,257 @@ def custom_exception_handler(exc, context):
         )
     
     return response
+
+# Saved Deals endpoints
+class SavedDealViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for saved deals.
+    """
+    serializer_class = SavedDealSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return SavedDeal.objects.filter(user=self.request.user)  # type: ignore[attr-defined]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+        # Record analytics
+        DealAnalytics.objects.create(
+            deal=serializer.instance.deal,
+            user=self.request.user,
+            action_type='save',
+            ip_address=self.get_client_ip(self.request),
+            user_agent=self.request.META.get('HTTP_USER_AGENT', '')
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        saved_deal = self.get_object()
+        deal = saved_deal.deal
+        saved_deal.delete()
+        
+        # Record analytics
+        DealAnalytics.objects.create(
+            deal=deal,
+            user=request.user,
+            action_type='unsave',
+            ip_address=self.get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')
+        )
+        
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def get_client_ip(self, request):
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+
+# Notification endpoints
+class NotificationViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for notifications.
+    """
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user)  # type: ignore[attr-defined]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['patch'])
+    def mark_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save()
+        return Response(NotificationSerializer(notification).data)
+
+    @action(detail=False, methods=['patch'])
+    def mark_all_read(self, request):
+        Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)  # type: ignore[attr-defined]
+        return Response({'message': 'All notifications marked as read'})
+
+# Analytics endpoints
+class AnalyticsView(generics.GenericAPIView):
+    """
+    Analytics endpoint for business owners.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Get user's businesses
+        businesses = Business.objects.filter(owner_user=request.user)  # type: ignore[attr-defined]
+        if not businesses.exists():
+            return Response({'message': 'No business found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Get timeframe from query params
+        timeframe = request.query_params.get('timeframe', '7d')
+        deal_id = request.query_params.get('dealId')
+
+        # Calculate date range
+        now = timezone.now()
+        if timeframe == '7d':
+            start_date = now - timedelta(days=7)
+        elif timeframe == '30d':
+            start_date = now - timedelta(days=30)
+        elif timeframe == '90d':
+            start_date = now - timedelta(days=90)
+        else:
+            start_date = now - timedelta(days=7)
+
+        # Get deals
+        deals = Deal.objects.filter(business__in=businesses)  # type: ignore[attr-defined]
+        if deal_id:
+            deals = deals.filter(id=deal_id)
+
+        # Get analytics data
+        analytics = DealAnalytics.objects.filter(
+            deal__in=deals,
+            created_at__gte=start_date
+        )
+
+        # Calculate stats
+        total_views = analytics.filter(action_type='view').count()
+        total_clicks = analytics.filter(action_type='click').count()
+        total_saves = analytics.filter(action_type='save').count()
+
+        # Deal-specific analytics
+        deal_analytics = []
+        for deal in deals:
+            deal_stats = analytics.filter(deal=deal).aggregate(
+                views=Count('id', filter=Q(action_type='view')),
+                clicks=Count('id', filter=Q(action_type='click')),
+                saves=Count('id', filter=Q(action_type='save'))
+            )
+            deal_analytics.append({
+                'deal_id': deal.id,
+                'title': deal.title,
+                'views': deal_stats['views'],
+                'clicks': deal_stats['clicks'],
+                'saves': deal_stats['saves'],
+                'ctr': (deal_stats['clicks'] / deal_stats['views'] * 100) if deal_stats['views'] > 0 else 0
+            })
+
+        return Response({
+            'timeframe': timeframe,
+            'total_views': total_views,
+            'total_clicks': total_clicks,
+            'total_saves': total_saves,
+            'ctr': (total_clicks / total_views * 100) if total_views > 0 else 0,
+            'deal_analytics': deal_analytics
+        })
+
+# Search functionality
+class DealSearchView(generics.ListAPIView):
+    """
+    Search deals by title, description, or category.
+    """
+    serializer_class = DealSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        query = self.request.query_params.get('q', '')
+        if not query:
+            return Deal.objects.none()  # type: ignore[attr-defined]
+
+        # Search in title, description, and category
+        queryset = Deal.objects.filter(  # type: ignore[attr-defined]
+            Q(title__icontains=query) |
+            Q(description__icontains=query) |
+            Q(category__icontains=query),
+            is_active=True,
+            end_time__gt=timezone.now()
+        ).select_related('business')
+
+        # Apply filters
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(category=category)
+
+        # Location filtering
+        latitude = self.request.query_params.get('latitude')
+        longitude = self.request.query_params.get('longitude')
+        max_distance = self.request.query_params.get('max_distance', 10)
+
+        if latitude and longitude:
+            try:
+                user_location = Point(float(longitude), float(latitude))
+                queryset = queryset.filter(
+                    location__distance_lte=(user_location, max_distance)
+                ).annotate(
+                    distance=Distance('location', user_location)
+                ).order_by('distance')
+            except (ValueError, TypeError):
+                pass
+
+        return queryset
+
+# Business logo upload
+class BusinessLogoUploadView(generics.UpdateAPIView):
+    """
+    Upload business logo.
+    """
+    serializer_class = BusinessSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return Business.objects.filter(owner_user=self.request.user).first()  # type: ignore[attr-defined]
+
+    def update(self, request, *args, **kwargs):
+        business = self.get_object()
+        if not business:
+            return Response({'message': 'Business not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if 'logo' not in request.FILES:
+            return Response({'message': 'No logo file provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        business.logo = request.FILES['logo']
+        business.save()
+        
+        return Response(BusinessSerializer(business).data)
+
+# Deal interaction tracking
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def record_deal_interaction(request, deal_id):
+    """
+    Record deal interaction (view, click, etc.).
+    """
+    try:
+        deal = Deal.objects.get(id=deal_id)  # type: ignore[attr-defined]
+        action_type = request.data.get('action_type', 'view')
+        
+        # Create analytics record
+        DealAnalytics.objects.create(
+            deal=deal,
+            user=request.user,
+            action_type=action_type,
+            ip_address=get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')
+        )
+
+        # Update deal stats
+        if action_type == 'view':
+            deal.views += 1
+        elif action_type == 'click':
+            deal.clicks += 1
+        
+        deal.save()
+
+        return Response({'message': f'{action_type} recorded successfully'})
+    except Deal.DoesNotExist:  # type: ignore[attr-defined]
+        return Response({'message': 'Deal not found'}, status=status.HTTP_404_NOT_FOUND)
+
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
 
 # Add more API views here (auth, users, businesses, deals, etc.)
 # See README.md and inline comments for documentation.
