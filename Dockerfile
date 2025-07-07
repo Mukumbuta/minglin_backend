@@ -14,7 +14,8 @@ RUN apt-get update && \
         gdal-bin \
         postgis \
         netcat-openbsd \
-        curl && \
+        curl \
+        git && \
     rm -rf /var/lib/apt/lists/*
 
 # Set work directory
