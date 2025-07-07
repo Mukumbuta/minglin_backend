@@ -1,23 +1,28 @@
-django==5.2.4
-psycopg2-binary
-# Django REST Framework
-# Use djangorestframework (correct PyPI name)
-djangorestframework==3.16.0
-# CORS support
+asgiref==3.9.0
+attrs==25.3.0
+certifi==2025.6.15
+Django==5.2.4
 django-cors-headers==4.7.0
-# Sentry error monitoring
-sentry-sdk
-# OpenAPI/Swagger docs
-drf-spectacular==0.28.0
-# Prometheus metrics
-django-prometheus==2.4.1
-# .env support
 django-environ==0.12.0
-# Filtering for DRF
 django-filter==25.1
-# GeoDjango/DRF GIS (use GitHub source as in Pipfile)
+django-prometheus==2.4.1
+djangorestframework==3.16.0
+djangorestframework-gis @ git+https://github.com/djangonauts/django-rest-framework-gis.git@15ca1ba91ef7cd7acf5e469778ea0a4634e0f7df
+djangorestframework_simplejwt==5.5.0
+drf-spectacular==0.28.0
 gunicorn==23.0.0
-# djangorestframework-gis from GitHub
--e git+https://github.com/djangonauts/django-rest-framework-gis.git#egg=djangorestframework-gis
-# djangorestframework-simplejwt
-djangorestframework-simplejwt 
+inflection==0.5.1
+jsonschema==4.24.0
+jsonschema-specifications==2025.4.1
+packaging==25.0
+prometheus_client==0.22.1
+psycopg2-binary==2.9.10
+PyJWT==2.9.0
+PyYAML==6.0.2
+referencing==0.36.2
+rpds-py==0.26.0
+sentry-sdk==2.32.0
+sqlparse==0.5.3
+typing_extensions==4.14.1
+uritemplate==4.2.0
+urllib3==2.5.0
