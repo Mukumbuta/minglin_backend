@@ -15,7 +15,8 @@ RUN apt-get update && \
         postgis \
         netcat-openbsd \
         curl \
-        git && \
+        git \
+        gosu && \
     rm -rf /var/lib/apt/lists/*
 
 # Set work directory
@@ -40,9 +41,6 @@ RUN useradd -m minglin && chown -R minglin /app
 # Copy and set permissions for entrypoint script
 COPY ./scripts/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
-
-# Switch to non-root user
-USER minglin
 
 # Expose port 8000 for Gunicorn
 EXPOSE 8000

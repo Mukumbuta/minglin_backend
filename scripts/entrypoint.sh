@@ -12,14 +12,22 @@ done
 
 echo "Postgres is up - continuing."
 
-# Create migrations if they don't exist
-python manage.py makemigrations --noinput
+# Fix permissions for mounted volumes (run as root)
+echo "Fixing permissions for mounted volumes..."
+chown -R minglin:minglin /app
+chmod -R 755 /app/api/migrations
 
-# Run migrations
-python manage.py migrate --noinput
+# Switch to minglin user for running Django commands
+exec gosu minglin /bin/sh -c "
+  # Create migrations if they don't exist
+  python manage.py makemigrations --noinput
 
-# Collect static files
-python manage.py collectstatic --noinput
+  # Run migrations
+  python manage.py migrate --noinput
 
-# Start Gunicorn
-exec gunicorn minglin_backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 
+  # Collect static files
+  python manage.py collectstatic --noinput
+
+  # Start Gunicorn
+  exec gunicorn minglin_backend.wsgi:application --bind 0.0.0.0:8000 --workers 3
+" 
