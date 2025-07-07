@@ -15,6 +15,7 @@ inflection==0.5.1
 jsonschema==4.24.0
 jsonschema-specifications==2025.4.1
 packaging==25.0
+Pillow==11.0.0
 prometheus_client==0.22.1
 psycopg2-binary==2.9.10
 PyJWT==2.9.0
