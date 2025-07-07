@@ -35,8 +35,14 @@ RUN mkdir -p logs
 RUN python manage.py collectstatic --noinput
 
 # Create non-root user for security
-RUN useradd -m myuser && chown -R myuser /app
-USER myuser
+RUN useradd -m minglin && chown -R minglin /app
+
+# Copy and set permissions for entrypoint script
+COPY ./scripts/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Switch to non-root user
+USER minglin
 
 # Expose port 8000 for Gunicorn
 EXPOSE 8000
@@ -46,8 +52,6 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8000/api/v1/healthcheck/ || exit 1
 
 # Entrypoint script waits for DB, then runs migrations and starts Gunicorn
-COPY ./scripts/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 
 # See README.md and Dockerfile comments for documentation. 

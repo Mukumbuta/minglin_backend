@@ -46,15 +46,17 @@ docker-clean:
 prod-start: check-tools
 	@bash scripts/install-tools.sh
 	@echo "🚀 Starting production environment..."
-	@docker compose up -d
-	@echo "⏳ Waiting for services to be ready..."
-	@until curl -f http://localhost:8000/api/v1/healthcheck/ >/dev/null 2>&1; do \
-		echo "   Waiting for Django API..."; \
-		sleep 5; \
-	done
-	@echo "✅ Production environment is ready!"
-	@echo "🌐 API is running at: http://localhost:8000"
-	@echo "📊 PostgreSQL is running at: localhost:5432"
+    @docker compose up -d
+    @echo "⏳ Waiting for services to be ready..."
+    @until curl -f http://localhost:8000/api/v1/healthcheck/ >/dev/null 2>&1; do \
+        echo "   Waiting for Django API..."; \
+        sleep 5; \
+    done
+    @echo "✅ Production environment is ready!"
+    @echo "🌐 API is running at: http://localhost:8000"
+    @echo "📊 PostgreSQL is running at: localhost:5432"
+	@echo "🚀 Running production deployment script..."
+	@bash deploy-production.sh
 
 prod-stop:
 	@echo "🛑 Stopping production environment..."
