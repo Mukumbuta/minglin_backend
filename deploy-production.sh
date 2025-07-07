@@ -8,15 +8,20 @@ sudo apt update && sudo apt upgrade -y
 # Install required packages
 sudo apt install -y nginx certbot python3-certbot-nginx git
 
-# Clone or update repository
-if [ -d "minglin_backend" ]; then
-    echo "📁 Updating existing repository..."
-    cd minglin_backend
-    git pull origin main
+# Check if we're already in the correct directory (has docker-compose.yml)
+if [ -f "docker-compose.yml" ]; then
+    echo "📁 Already in the correct directory..."
 else
-    echo "📁 Cloning repository..."
-    git clone https://github.com/mukumbuta/minglin_backend.git
-    cd minglin_backend
+    # Clone or update repository
+    if [ -d "minglin_backend" ]; then
+        echo "📁 Updating existing repository..."
+        cd minglin_backend
+        git pull origin main
+    else
+        echo "📁 Cloning repository..."
+        git clone https://github.com/mukumbuta/minglin_backend.git
+        cd minglin_backend
+    fi
 fi
 
 # Create production .env if it doesn't exist
@@ -28,7 +33,7 @@ DEBUG=False
 ALLOWED_HOSTS=api.tumingle.com,localhost,127.0.0.1
 POSTGRES_DB=minglin_prod
 POSTGRES_USER=minglin
-POSTGRES_PASSWORD=Minglin202!
+POSTGRES_PASSWORD=Minglin2025!
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
 SENTRY_DSN=
