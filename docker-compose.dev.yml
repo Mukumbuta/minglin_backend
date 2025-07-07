@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # MongoDB service for development
+  mongo-dev:
+    image: mongo:6.0
+    container_name: minglin-mongo-dev
+    ports:
+      - "27018:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=minglin_dev
+    volumes:
+      - mongo_dev_data:/data/db
+      - ./migrations:/docker-entrypoint-initdb.d
+    networks:
+      - minglin-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # API service for development
+  api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: development
+    image: minglin-backend-dev:latest
+    container_name: minglin-backend-dev
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - MONGO_URI=mongodb://mongo-dev:27017/minglin_dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      mongo-dev:
+        condition: service_healthy
+    networks:
+      - minglin-dev-network
+    restart: unless-stopped
+    command: npm run dev
+
+volumes:
+  mongo_dev_data:
+
+networks:
+  minglin-dev-network:
+    driver: bridge 

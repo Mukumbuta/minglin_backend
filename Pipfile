@@ -1,0 +1,25 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+django = "*" # Django web framework
+psycopg2-binary = "*" # PostgreSQL driver
+rest_framework = "*" # Django REST Framework
+corsheaders = "*" # CORS support
+sentry-sdk = "*" # Sentry error monitoring
+drf-spectacular = "*" # OpenAPI/Swagger docs
+django-prometheus = "*" # Prometheus metrics
+django-environ = "*" # .env support
+django-filter = "*" # Filtering for DRF
+rest_framework_gis = {git = "https://github.com/djangonauts/django-rest-framework-gis.git"} # GeoDjango/DRF GIS
+# postgis is provided by the Docker image, not pip
+# gunicorn is installed for production WSGI serving
+gunicorn = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"
+python_full_version = "3.12.8"
