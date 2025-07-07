@@ -28,6 +28,9 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 # Copy project files
 COPY . .
 
+# Create logs directory for Django logging (fallback)
+RUN mkdir -p logs
+
 # Collect static files (for production)
 RUN python manage.py collectstatic --noinput
 
