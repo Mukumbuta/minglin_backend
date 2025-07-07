@@ -25,6 +25,7 @@ else
 fi
 
 # Create production .env if it doesn't exist
+echo "🔍 Checking for .env file..."
 if [ ! -f ".env" ]; then
     echo "📝 Creating production .env file..."
     cat > .env << EOF
@@ -38,7 +39,10 @@ POSTGRES_HOST=db
 POSTGRES_PORT=5432
 SENTRY_DSN=
 EOF
+    echo "✅ .env file created successfully"
     echo "⚠️  Please edit .env file with your actual values!"
+else
+    echo "📄 .env file already exists"
 fi
 
 # Configure Nginx for Django

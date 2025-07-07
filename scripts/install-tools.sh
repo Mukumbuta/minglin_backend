@@ -107,8 +107,6 @@ install_docker_compose() {
         # Check if compose plugin is available
         if docker compose version >/dev/null 2>&1; then
             print_success "Docker Compose v2 is available via 'docker compose'"
-            # Create symlink for docker-compose command
-            sudo ln -sf /usr/bin/docker-compose /usr/local/bin/docker-compose
             return 0
         fi
     fi
@@ -164,7 +162,7 @@ verify_installations() {
         all_good=false
     fi
     
-    if ! command_exists "docker compose"; then
+    if ! docker compose version >/dev/null 2>&1; then
         print_error "Docker Compose is not installed or not in PATH"
         all_good=false
     fi
