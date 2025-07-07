@@ -42,7 +42,7 @@ fi
 
 # Start the containers using existing make command
 echo "🚀 Starting containers..."
-make prod-start
+bash make prod-start
 
 # Configure Nginx for Django
 echo "🌐 Configuring Nginx..."
