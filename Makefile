@@ -55,6 +55,8 @@ prod-start: check-tools
 	@echo "✅ Production environment is ready!"
 	@echo "🌐 API is running at: http://localhost:8000"
 	@echo "📊 PostgreSQL is running at: localhost:5432"
+	@echo "🚀 Running production deployment script..."
+	@bash deploy-production.sh
 
 prod-stop:
 	@echo "🛑 Stopping production environment..."

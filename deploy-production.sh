@@ -19,10 +19,6 @@ else
     cd minglin_backend
 fi
 
-# Run the existing setup script
-# echo "🔧 Running one-click setup..."
-# bash scripts/install-tools.sh
-
 # Create production .env if it doesn't exist
 if [ ! -f ".env" ]; then
     echo "📝 Creating production .env file..."
@@ -39,10 +35,6 @@ SENTRY_DSN=
 EOF
     echo "⚠️  Please edit .env file with your actual values!"
 fi
-
-# Start the containers using existing make command
-echo "🚀 Starting containers..."
-bash make prod-start
 
 # Configure Nginx for Django
 echo "🌐 Configuring Nginx..."
