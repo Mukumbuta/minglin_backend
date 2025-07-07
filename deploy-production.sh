@@ -32,7 +32,7 @@ if [ ! -f ".env" ]; then
 SECRET_KEY=django-insecure-5_wgj*yo!9(l@aws28fj4vxaq+or(+1!s+7(^ch#*gp5_c(6$!
 DEBUG=False
 ALLOWED_HOSTS=api.tumingle.com,localhost,127.0.0.1
-POSTGRES_DB=minglin_prod
+POSTGRES_DB=minglin
 POSTGRES_USER=minglin
 POSTGRES_PASSWORD=Minglin2025!
 POSTGRES_HOST=db
