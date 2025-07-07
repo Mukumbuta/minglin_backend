@@ -75,7 +75,7 @@ MIDDLEWARE = [
     'api.middleware.PerformanceMonitoringMiddleware',
 ]
 
-ROOT_URLCONF = 'backend.urls'
+ROOT_URLCONF = 'minglin_backend.urls'
 
 TEMPLATES = [
     {
@@ -93,7 +93,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'backend.wsgi.application'
+WSGI_APPLICATION = 'minglin_backend.wsgi.application'
 
 
 # Database
