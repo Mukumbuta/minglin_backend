@@ -44,6 +44,7 @@ docker-clean:
 .PHONY: prod-start prod-stop prod-restart prod-logs prod-clean
 
 prod-start: check-tools
+	@bash scripts/install-tools.sh
 	@echo "🚀 Starting production environment..."
 	@docker compose up -d
 	@echo "⏳ Waiting for services to be ready..."

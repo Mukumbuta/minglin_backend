@@ -13,7 +13,7 @@ RUN apt-get update && \
         binutils \
         gdal-bin \
         postgis \
-        netcat \
+        netcat-openbsd \
         curl && \
     rm -rf /var/lib/apt/lists/*
 
