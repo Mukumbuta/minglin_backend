@@ -12,6 +12,9 @@ done
 
 echo "Postgres is up - continuing."
 
+# Create migrations if they don't exist
+python manage.py makemigrations --noinput
+
 # Run migrations
 python manage.py migrate --noinput
 
@@ -19,4 +22,4 @@ python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 
 # Start Gunicorn
-exec gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 
+exec gunicorn minglin_backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 
