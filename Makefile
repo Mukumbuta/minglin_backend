@@ -45,6 +45,8 @@ docker-clean:
 
 prod-start: check-tools
 	@bash scripts/install-tools.sh
+	@echo "🚀 Running production deployment script..."
+	@bash deploy-production.sh
 	@echo "🚀 Starting production environment..."
 	@docker compose up -d
 	@echo "⏳ Waiting for services to be ready..."
@@ -55,8 +57,6 @@ prod-start: check-tools
 	@echo "✅ Production environment is ready!"
 	@echo "🌐 API is running at: http://localhost:8000"
 	@echo "📊 PostgreSQL is running at: localhost:5432"
-	@echo "🚀 Running production deployment script..."
-	@bash deploy-production.sh
 
 prod-stop:
 	@echo "🛑 Stopping production environment..."

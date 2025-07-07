@@ -23,12 +23,12 @@ fi
 if [ ! -f ".env" ]; then
     echo "📝 Creating production .env file..."
     cat > .env << EOF
-SECRET_KEY=your-super-secure-django-secret-key-here
+SECRET_KEY=django-insecure-5_wgj*yo!9(l@aws28fj4vxaq+or(+1!s+7(^ch#*gp5_c(6$!
 DEBUG=False
 ALLOWED_HOSTS=api.tumingle.com,localhost,127.0.0.1
 POSTGRES_DB=minglin_prod
 POSTGRES_USER=minglin
-POSTGRES_PASSWORD=your-secure-postgres-password
+POSTGRES_PASSWORD=Minglin202!
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
 SENTRY_DSN=
