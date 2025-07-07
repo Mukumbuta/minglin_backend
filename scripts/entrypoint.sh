@@ -13,10 +13,10 @@ done
 echo "Postgres is up - continuing."
 
 # Run migrations
-pipenv run python manage.py migrate --noinput
+python manage.py migrate --noinput
 
 # Collect static files
-pipenv run python manage.py collectstatic --noinput
+python manage.py collectstatic --noinput
 
 # Start Gunicorn
-exec pipenv run gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 
+exec gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 

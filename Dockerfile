@@ -20,15 +20,15 @@ RUN apt-get update && \
 # Set work directory
 WORKDIR /app
 
-# Install pipenv
-COPY Pipfile Pipfile.lock ./
-RUN pip install pipenv && pipenv install --deploy --ignore-pipfile --system
+# Install Python dependencies
+COPY requirements.txt ./
+RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # Copy project files
 COPY . .
 
 # Collect static files (for production)
-RUN pipenv run python manage.py collectstatic --noinput
+RUN python manage.py collectstatic --noinput
 
 # Create non-root user for security
 RUN useradd -m myuser && chown -R myuser /app
