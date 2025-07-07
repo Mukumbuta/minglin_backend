@@ -22,7 +22,7 @@ WORKDIR /app
 
 # Install pipenv
 COPY Pipfile Pipfile.lock ./
-RUN pip install pipenv && pipenv install --deploy --ignore-pipfile
+RUN pip install pipenv && pipenv install --deploy --ignore-pipfile --system
 
 # Copy project files
 COPY . .
