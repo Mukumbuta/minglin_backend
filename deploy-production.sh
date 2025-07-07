@@ -20,8 +20,8 @@ else
 fi
 
 # Run the existing setup script
-echo "🔧 Running one-click setup..."
-bash scripts/install-tools.sh
+# echo "🔧 Running one-click setup..."
+# bash scripts/install-tools.sh
 
 # Create production .env if it doesn't exist
 if [ ! -f ".env" ]; then
