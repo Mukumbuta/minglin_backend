@@ -13,7 +13,7 @@ from .serializers import (
 from rest_framework import viewsets, generics, status, permissions, serializers
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.geos import Point
-from django.db.models import Q, Count, F
+from django.db.models import Q, Count, F, Sum
 from django.utils import timezone
 import logging
 from django.http import JsonResponse
@@ -643,41 +643,64 @@ class AnalyticsView(generics.GenericAPIView):
         if deal_id:
             deals = deals.filter(id=deal_id)
 
-        # Get analytics data
+        # Get analytics data for the timeframe
         analytics = DealAnalytics.objects.filter(
             deal__in=deals,
             created_at__gte=start_date
         )
 
-        # Calculate stats
-        total_views = analytics.filter(action_type='view').count()
-        total_clicks = analytics.filter(action_type='click').count()
-        total_saves = analytics.filter(action_type='save').count()
+        # Calculate stats from analytics table (timeframe-specific)
+        timeframe_views = analytics.filter(action_type='view').count()
+        timeframe_clicks = analytics.filter(action_type='click').count()
+        timeframe_saves = analytics.filter(action_type='save').count()
+
+        # Get current totals from Deal model (all-time)
+        total_views = deals.aggregate(total=Sum('views'))['total'] or 0
+        total_clicks = deals.aggregate(total=Sum('clicks'))['total'] or 0
 
         # Deal-specific analytics
         deal_analytics = []
         for deal in deals:
-            deal_stats = analytics.filter(deal=deal).aggregate(
+            # Get timeframe-specific analytics
+            deal_timeframe_stats = analytics.filter(deal=deal).aggregate(
                 views=Count('id', filter=Q(action_type='view')),
                 clicks=Count('id', filter=Q(action_type='click')),
                 saves=Count('id', filter=Q(action_type='save'))
             )
+            
+            # Get current totals from Deal model
+            deal_current_views = deal.views or 0
+            deal_current_clicks = deal.clicks or 0
+            
             deal_analytics.append({
-                'deal_id': deal.id,
+                'id': deal.id,
                 'title': deal.title,
-                'views': deal_stats['views'],
-                'clicks': deal_stats['clicks'],
-                'saves': deal_stats['saves'],
-                'ctr': (deal_stats['clicks'] / deal_stats['views'] * 100) if deal_stats['views'] > 0 else 0
+                'description': deal.description,
+                'dealType': deal.category,
+                'views': deal_current_views,  # Use current totals
+                'clicks': deal_current_clicks,  # Use current totals
+                'ctaActions': deal_timeframe_stats['clicks'],  # Use timeframe clicks as CTA actions
+                'radiusReach': 5.2,  # Placeholder - would need to calculate from location
+                'createdAt': deal.created_at,
+                'isActive': deal.is_active,
+                'timeframeViews': deal_timeframe_stats['views'],
+                'timeframeClicks': deal_timeframe_stats['clicks'],
+                'saves': deal_timeframe_stats['saves'],
+                'ctr': (deal_current_clicks / deal_current_views * 100) if deal_current_views > 0 else 0
             })
 
         return Response({
             'timeframe': timeframe,
-            'total_views': total_views,
-            'total_clicks': total_clicks,
-            'total_saves': total_saves,
-            'ctr': (total_clicks / total_views * 100) if total_views > 0 else 0,
-            'deal_analytics': deal_analytics
+            'totalViews': total_views,  # All-time totals
+            'totalClicks': total_clicks,  # All-time totals
+            'timeframeViews': timeframe_views,  # Timeframe-specific
+            'timeframeClicks': timeframe_clicks,  # Timeframe-specific
+            'totalSaves': timeframe_saves,
+            'clickThroughRate': (total_clicks / total_views * 100) if total_views > 0 else 0,
+            'conversionRate': (timeframe_saves / timeframe_views * 100) if timeframe_views > 0 else 0,
+            'avgRadiusReach': '5.2',  # Placeholder - would need to calculate from location data
+            'totalDeals': deals.count(),
+            'deals': deal_analytics  # Include deals array for frontend
         })
 
 # Search functionality
