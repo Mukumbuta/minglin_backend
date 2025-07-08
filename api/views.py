@@ -2,6 +2,7 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.contrib.auth import authenticate
 from .models import User, Business, Deal, SavedDeal, Notification, DealAnalytics, OTP
 from .serializers import (
@@ -257,12 +258,7 @@ class DealViewSet(viewsets.ModelViewSet):
     serializer_class = DealSerializer
     permission_classes = [IsAuthenticated]
     
-    def get_parsers(self):
-        """
-        Ensure we can handle both JSON and multipart form data.
-        """
-        from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-        return [MultiPartParser, FormParser, JSONParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         # Show all deals for admin, or only user's business deals
