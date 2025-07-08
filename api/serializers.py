@@ -76,7 +76,7 @@ class DealSerializer(serializers.ModelSerializer):
         queryset=Business.objects.all(), source='business', write_only=True, required=False
     )
     location = serializers.SerializerMethodField()
-    image = serializers.ImageField(required=False, allow_null=True)
+    image = serializers.ImageField(required=False, allow_null=True, max_length=None)
     is_saved = serializers.SerializerMethodField()
 
     class Meta:
@@ -110,8 +110,10 @@ class DealSerializer(serializers.ModelSerializer):
         # Handle field name mapping from React Native
         if 'isActive' in data:
             ret['is_active'] = data['isActive']
+        # Don't map imageUrl to image field - handle separately
         if 'imageUrl' in data:
-            ret['image'] = data['imageUrl']
+            # Remove imageUrl from data since we'll handle it separately
+            data.pop('imageUrl', None)
             
         return ret
 

@@ -256,6 +256,13 @@ class DealViewSet(viewsets.ModelViewSet):
     """
     serializer_class = DealSerializer
     permission_classes = [IsAuthenticated]
+    
+    def get_parsers(self):
+        """
+        Ensure we can handle both JSON and multipart form data.
+        """
+        from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+        return [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         # Show all deals for admin, or only user's business deals
