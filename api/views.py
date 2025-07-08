@@ -557,8 +557,8 @@ class DealSearchView(generics.ListAPIView):
 
         # Search in title, description, and category
         queryset = Deal.objects.filter(  # type: ignore[attr-defined]
-            Q(title__icontains=query) |
-            Q(description__icontains=query) |
+            Q(title__icontains=query) |  # type: ignore[operator]
+            Q(description__icontains=query) |  # type: ignore[operator]
             Q(category__icontains=query),
             is_active=True,
             end_time__gt=timezone.now()
