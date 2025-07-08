@@ -73,7 +73,7 @@ class BusinessSerializer(serializers.ModelSerializer):
 class DealSerializer(serializers.ModelSerializer):
     business = BusinessSerializer(read_only=True)
     business_id = serializers.PrimaryKeyRelatedField(
-        queryset=Business.objects.all(), source='business', write_only=True
+        queryset=Business.objects.all(), source='business', write_only=True, required=False
     )
     location = serializers.SerializerMethodField()
     image = serializers.ImageField(required=False, allow_null=True)
@@ -106,6 +106,13 @@ class DealSerializer(serializers.ModelSerializer):
         lon = data.get('longitude') or data.get('lon')
         if lat is not None and lon is not None:
             ret['location'] = Point(float(lon), float(lat))
+        
+        # Handle field name mapping from React Native
+        if 'isActive' in data:
+            ret['is_active'] = data['isActive']
+        if 'imageUrl' in data:
+            ret['image'] = data['imageUrl']
+            
         return ret
 
 class SavedDealSerializer(serializers.ModelSerializer):

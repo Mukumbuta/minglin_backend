@@ -265,13 +265,16 @@ class DealViewSet(viewsets.ModelViewSet):
         return Deal.objects.filter(business__in=businesses)  # type: ignore[attr-defined]
 
     def perform_create(self, serializer):
-        # Attach business based on current user
-        businesses = Business.objects.filter(owner_user=self.request.user)  # type: ignore[attr-defined]
-        if not businesses.exists():
-            logger.error(f"Deal creation failed - no business profile: {self.request.user.id}")
-            raise serializers.ValidationError('No business profile found')
-        deal = serializer.save(business=businesses.first())
-        logger.info(f"Deal created: {deal.id} by user {self.request.user.id}")
+        # Attach business based on current user if not provided
+        if not serializer.validated_data.get('business'):
+            businesses = Business.objects.filter(owner_user=self.request.user)  # type: ignore[attr-defined]
+            if not businesses.exists():
+                logger.error(f"Deal creation failed - no business profile: {self.request.user.id}")
+                raise serializers.ValidationError('No business profile found')
+            serializer.save(business=businesses.first())
+        else:
+            serializer.save()
+        logger.info(f"Deal created: {serializer.instance.id} by user {self.request.user.id}")
 
     def update(self, request, *args, **kwargs):
         """
@@ -557,8 +560,8 @@ class DealSearchView(generics.ListAPIView):
 
         # Search in title, description, and category
         queryset = Deal.objects.filter(  # type: ignore[attr-defined]
-            Q(title__icontains=query) |  # type: ignore[operator]
-            Q(description__icontains=query) |  # type: ignore[operator]
+            Q(title__icontains=query) |
+            Q(description__icontains=query) |
             Q(category__icontains=query),
             is_active=True,
             end_time__gt=timezone.now()
