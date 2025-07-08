@@ -441,6 +441,62 @@ class CustomerDealsView(generics.ListAPIView):
         
         return Response(data)
 
+# Public deal detail endpoint
+class CustomerDealDetailView(generics.RetrieveAPIView):
+    """
+    Get individual deal details for customers (public endpoint).
+    """
+    serializer_class = DealSerializer
+    permission_classes = [AllowAny]
+    queryset = Deal.objects.filter(is_active=True, end_time__gte=timezone.now())  # type: ignore[attr-defined]
+
+    def retrieve(self, request, *args, **kwargs):
+        deal = self.get_object()
+        serializer = self.get_serializer(deal)
+        data = serializer.data
+        
+        # Calculate distance if user has location
+        user_lat = request.query_params.get('lat')
+        user_lon = request.query_params.get('lon')
+        
+        if user_lat and user_lon and deal.location:
+            user_location = Point(float(user_lon), float(user_lat))
+            deal_location = Point(deal.location.x, deal.location.y)
+            distance_km = user_location.distance(deal_location) * 111  # Convert to km
+            data['distance'] = round(distance_km, 1)
+        
+        # Record view for this specific deal (if user is authenticated)
+        if request.user.is_authenticated:
+            try:
+                # Check if this user has already viewed this deal to avoid duplicate views
+                existing_view = DealAnalytics.objects.filter(
+                    deal=deal,
+                    user=request.user,
+                    action_type='view'
+                ).first()
+                
+                if not existing_view:
+                    # Create analytics record
+                    DealAnalytics.objects.create(
+                        deal=deal,
+                        user=request.user,
+                        action_type='view',
+                        ip_address=get_client_ip(request),
+                        user_agent=request.META.get('HTTP_USER_AGENT', '')
+                    )
+                    # Update deal views count using F() to avoid race conditions
+                    deal.views = F('views') + 1
+                    deal.save()
+                    # Refresh the deal object to get the updated count
+                    deal.refresh_from_db()
+                    logger.info(f"View recorded for deal {deal.id} by user {request.user.id}")
+                else:
+                    logger.info(f"User {request.user.id} already viewed deal {deal.id}")
+            except Exception as e:
+                logger.error(f"Failed to record view for deal {deal.id}: {str(e)}")
+        
+        return Response(data)
+
 # My deals endpoint
 class MyDealsView(generics.ListAPIView):
     """

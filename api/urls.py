@@ -17,6 +17,7 @@ urlpatterns = [
     path('auth/verify-otp/', views.VerifyOTPView.as_view(), name='verify-otp'),
     # Deals customer/public endpoints
     path('deals/customer/', views.CustomerDealsView.as_view(), name='customer-deals'),
+    path('deals/customer/<int:pk>/', views.CustomerDealDetailView.as_view(), name='customer-deal-detail'),
     path('deals/my/', views.MyDealsView.as_view(), name='my-deals'),
     # User profile endpoints (me, preferences, location)
     path('users/me/', views.MeView.as_view(), name='me'),
