@@ -17,7 +17,7 @@ from django.utils import timezone
 import logging
 from django.http import JsonResponse
 from datetime import datetime, timedelta
-from utils import notify
+from .utils import notify
 
 logger = logging.getLogger('api')
 

@@ -21,7 +21,7 @@ class OTPVerificationSerializer(serializers.Serializer):
     last_name = serializers.CharField(max_length=30, required=False)
 
 class RegisterSerializer(serializers.ModelSerializer):
-    phone = serializers.CharField(max_length=32, unique=True)
+    phone = serializers.CharField(max_length=32)
     role = serializers.ChoiceField(choices=User.ROLE_CHOICES)
 
     class Meta:
@@ -31,6 +31,14 @@ class RegisterSerializer(serializers.ModelSerializer):
             'preferences', 'location', 'notifications_push'
         ]
         read_only_fields = ['id']
+
+    def validate_phone(self, value):
+        """
+        Check that the phone number is unique.
+        """
+        if User.objects.filter(phone=value).exists():
+            raise serializers.ValidationError("A user with this phone number already exists.")
+        return value
 
     def create(self, validated_data):
         # Create user with phone as username

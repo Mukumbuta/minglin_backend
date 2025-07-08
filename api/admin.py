@@ -9,8 +9,7 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(Business)
 class BusinessAdmin(admin.ModelAdmin):
-    list_display = ['name', 'owner_user', 'contact_phone', 'created_at']
-    list_filter = ['created_at']
+    list_display = ['name', 'owner_user', 'contact_phone']
     search_fields = ['name', 'description']
 
 @admin.register(Deal)
