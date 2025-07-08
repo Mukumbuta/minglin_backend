@@ -109,7 +109,12 @@ class DealSerializer(serializers.ModelSerializer):
         
         # Handle field name mapping from React Native
         if 'isActive' in data:
-            ret['is_active'] = data['isActive']
+            # Convert string boolean to Python boolean
+            is_active_value = data['isActive']
+            if isinstance(is_active_value, str):
+                ret['is_active'] = is_active_value.lower() == 'true'
+            else:
+                ret['is_active'] = bool(is_active_value)
         # Don't map imageUrl to image field - handle separately
         if 'imageUrl' in data:
             # Remove imageUrl from data since we'll handle it separately
