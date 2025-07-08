@@ -31,10 +31,11 @@ if [ ! -f ".env" ]; then
     cat > .env << EOF
 SECRET_KEY=django-insecure-5_wgj*yo!9(l@aws28fj4vxaq+or(+1!s+7(^ch#*gp5_c(6$!
 DEBUG=False
-ALLOWED_HOSTS=api.tumingle.com,localhost,127.0.0.1
+ALLOWED_HOSTS=*
 POSTGRES_DB=minglin
 POSTGRES_USER=minglin
 POSTGRES_PASSWORD=Minglin2025!
+CORS_ALLOW_ALL_ORIGINS=True
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
 SENTRY_DSN=
@@ -77,6 +78,23 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
+        
+        # CORS headers for mobile apps
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, PATCH' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
+        add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always;
+        
+        # Handle preflight requests
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' '*';
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS, PATCH';
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization';
+            add_header 'Access-Control-Max-Age' 1728000;
+            add_header 'Content-Type' 'text/plain; charset=utf-8';
+            add_header 'Content-Length' 0;
+            return 204;
+        }
         
         # Timeout settings for long-running requests
         proxy_connect_timeout 60s;
