@@ -55,8 +55,14 @@ class SendOTPView(generics.GenericAPIView):
             # Generate OTP
             otp = OTP.generate_otp(phone)
             
-            notify(phone, f'Your OTP is {otp.otp_code}')
-            logger.info(f"OTP generated for {phone}: {otp.otp_code}")
+            # Clean phone number for SMS (remove + if present, the notify function will add 26 prefix)
+            clean_phone = phone
+            if phone.startswith('+'):
+                clean_phone = phone[1:]  # Remove + if present
+            
+            # Send SMS (notify function will add 26 prefix automatically)
+            sms_result = notify(clean_phone, f'Your Minglin OTP is {otp.otp_code}. Valid for 10 minutes.')
+            logger.info(f"OTP generated for {phone}: {otp.otp_code}, SMS result: {sms_result}")
             
             return Response({
                 'message': 'OTP sent successfully',
@@ -68,7 +74,7 @@ class SendOTPView(generics.GenericAPIView):
         except Exception as e:
             logger.error(f"OTP generation failed: {str(e)}")
             return Response(
-                {'error': 'Failed to send OTP'}, 
+                {'error': 'Failed to send OTP. Please try again.'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -274,10 +280,47 @@ class DealViewSet(viewsets.ModelViewSet):
             if not businesses.exists():
                 logger.error(f"Deal creation failed - no business profile: {self.request.user.id}")
                 raise serializers.ValidationError('No business profile found')
-            serializer.save(business=businesses.first())
+            deal = serializer.save(business=businesses.first())
         else:
-            serializer.save()
-        logger.info(f"Deal created: {serializer.instance.id} by user {self.request.user.id}")
+            deal = serializer.save()
+        
+        logger.info(f"Deal created: {deal.id} by user {self.request.user.id}")
+        
+        # Send SMS notifications to all customers
+        try:
+            self.send_deal_notifications(deal)
+        except Exception as e:
+            logger.error(f"Failed to send deal notifications: {str(e)}")
+    
+    def send_deal_notifications(self, deal):
+        """Send SMS notifications to all customers about the new deal."""
+        from .utils import notify
+        
+        # Get all customer users
+        customers = User.objects.filter(role='user')  # type: ignore[attr-defined]
+        
+        # Create notification message
+        business_name = deal.business.name
+        deal_title = deal.title
+        cta_text = deal.cta if deal.cta else "Visit Store"
+        
+        message = f"🎉 New deal from {business_name}: {deal_title}. {cta_text}. Reply STOP to unsubscribe."
+        
+        # Send SMS to each customer
+        for customer in customers:
+            try:
+                if customer.phone:
+                    # Clean phone number (remove + if present, notify function will add 26 prefix)
+                    clean_phone = customer.phone
+                    if customer.phone.startswith('+'):
+                        clean_phone = customer.phone[1:]
+                    
+                    notify(clean_phone, message)
+                    logger.info(f"SMS notification sent to {customer.phone} for deal {deal.id}")
+            except Exception as e:
+                logger.error(f"Failed to send SMS to {customer.phone}: {str(e)}")
+        
+        logger.info(f"Deal notifications sent to {customers.count()} customers")
 
     def update(self, request, *args, **kwargs):
         """
@@ -362,6 +405,23 @@ class CustomerDealsView(generics.ListAPIView):
                     deal_location = Point(deal_data['location']['lon'], deal_data['location']['lat'])
                     distance_km = user_location.distance(deal_location) * 111  # Convert to km
                     deal_data['distance'] = round(distance_km, 1)
+        
+        # Record views for deals (if user is authenticated)
+        if request.user.is_authenticated:
+            for deal in queryset:
+                try:
+                    DealAnalytics.objects.create(
+                        deal=deal,
+                        user=request.user,
+                        action_type='view',
+                        ip_address=get_client_ip(request),
+                        user_agent=request.META.get('HTTP_USER_AGENT', '')
+                    )
+                    # Update deal views count
+                    deal.views = DealAnalytics.objects.filter(deal=deal, action_type='view').count()  # type: ignore[attr-defined]
+                    deal.save()
+                except Exception as e:
+                    logger.error(f"Failed to record view for deal {deal.id}: {str(e)}")
         
         return Response(data)
 
@@ -637,15 +697,20 @@ def record_deal_interaction(request, deal_id):
             user_agent=request.META.get('HTTP_USER_AGENT', '')
         )
 
-        # Update deal stats
+        # Update deal stats based on analytics
         if action_type == 'view':
-            deal.views += 1
+            deal.views = DealAnalytics.objects.filter(deal=deal, action_type='view').count()  # type: ignore[attr-defined]
         elif action_type == 'click':
-            deal.clicks += 1
+            deal.clicks = DealAnalytics.objects.filter(deal=deal, action_type='click').count()  # type: ignore[attr-defined]
         
         deal.save()
 
-        return Response({'message': f'{action_type} recorded successfully'})
+        return Response({
+            'message': f'{action_type} recorded successfully',
+            'views': deal.views,
+            'clicks': deal.clicks,
+            'ctr': (deal.clicks / deal.views * 100) if deal.views > 0 else 0
+        })
     except Deal.DoesNotExist:  # type: ignore[attr-defined]
         return Response({'message': 'Deal not found'}, status=status.HTTP_404_NOT_FOUND)
 
