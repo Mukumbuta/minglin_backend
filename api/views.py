@@ -13,7 +13,7 @@ from .serializers import (
 from rest_framework import viewsets, generics, status, permissions, serializers
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.geos import Point
-from django.db.models import Q, Count
+from django.db.models import Q, Count, F
 from django.utils import timezone
 import logging
 from django.http import JsonResponse
@@ -412,16 +412,30 @@ class CustomerDealsView(generics.ListAPIView):
         if request.user.is_authenticated:
             for deal in queryset:
                 try:
-                    DealAnalytics.objects.create(
+                    # Check if this user has already viewed this deal to avoid duplicate views
+                    existing_view = DealAnalytics.objects.filter(
                         deal=deal,
                         user=request.user,
-                        action_type='view',
-                        ip_address=get_client_ip(request),
-                        user_agent=request.META.get('HTTP_USER_AGENT', '')
-                    )
-                    # Update deal views count
-                    deal.views = DealAnalytics.objects.filter(deal=deal, action_type='view').count()  # type: ignore[attr-defined]
-                    deal.save()
+                        action_type='view'
+                    ).first()
+                    
+                    if not existing_view:
+                        # Create analytics record
+                        DealAnalytics.objects.create(
+                            deal=deal,
+                            user=request.user,
+                            action_type='view',
+                            ip_address=get_client_ip(request),
+                            user_agent=request.META.get('HTTP_USER_AGENT', '')
+                        )
+                        # Update deal views count using F() to avoid race conditions
+                        deal.views = F('views') + 1
+                        deal.save()
+                        # Refresh the deal object to get the updated count
+                        deal.refresh_from_db()
+                        logger.info(f"View recorded for deal {deal.id} by user {request.user.id}")
+                    else:
+                        logger.info(f"User {request.user.id} already viewed deal {deal.id}")
                 except Exception as e:
                     logger.error(f"Failed to record view for deal {deal.id}: {str(e)}")
         
@@ -690,22 +704,35 @@ def record_deal_interaction(request, deal_id):
         deal = Deal.objects.get(id=deal_id)  # type: ignore[attr-defined]
         action_type = request.data.get('action_type', 'view')
         
-        # Create analytics record
-        DealAnalytics.objects.create(
+        # Check if this user has already performed this action for this deal
+        existing_interaction = DealAnalytics.objects.filter(
             deal=deal,
             user=request.user,
-            action_type=action_type,
-            ip_address=get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', '')
-        )
-
-        # Update deal stats based on analytics
-        if action_type == 'view':
-            deal.views = DealAnalytics.objects.filter(deal=deal, action_type='view').count()  # type: ignore[attr-defined]
-        elif action_type == 'click':
-            deal.clicks = DealAnalytics.objects.filter(deal=deal, action_type='click').count()  # type: ignore[attr-defined]
+            action_type=action_type
+        ).first()
         
-        deal.save()
+        if not existing_interaction:
+            # Create analytics record
+            DealAnalytics.objects.create(
+                deal=deal,
+                user=request.user,
+                action_type=action_type,
+                ip_address=get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
+            
+            # Update deal stats using F() to avoid race conditions
+            if action_type == 'view':
+                deal.views = F('views') + 1
+            elif action_type == 'click':
+                deal.clicks = F('clicks') + 1
+            
+            deal.save()
+            # Refresh the deal object to get the updated count
+            deal.refresh_from_db()
+            logger.info(f"{action_type} recorded for deal {deal.id} by user {request.user.id}")
+        else:
+            logger.info(f"User {request.user.id} already performed {action_type} for deal {deal.id}")
 
         return Response({
             'message': f'{action_type} recorded successfully',
