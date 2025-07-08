@@ -304,7 +304,8 @@ class DealViewSet(viewsets.ModelViewSet):
         deal_title = deal.title
         cta_text = deal.cta if deal.cta else "Visit Store"
         
-        message = f"🎉 New deal from {business_name}: {deal_title}. {cta_text}. Reply STOP to unsubscribe."
+        customer_message = f"New promotion from {business_name}: {deal_title}. Open your Minglin app for details."
+        business_message = f"Promotion notifications sent to {customers.count()} customers"
         
         # Send SMS to each customer
         for customer in customers:
@@ -315,7 +316,8 @@ class DealViewSet(viewsets.ModelViewSet):
                     if customer.phone.startswith('+'):
                         clean_phone = customer.phone[1:]
                     
-                    notify(clean_phone, message)
+                    notify(clean_phone, customer_message)
+                    notify(deal.business.contact_phone, business_message)
                     logger.info(f"SMS notification sent to {customer.phone} for deal {deal.id}")
             except Exception as e:
                 logger.error(f"Failed to send SMS to {customer.phone}: {str(e)}")
