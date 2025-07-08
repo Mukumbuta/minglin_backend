@@ -1,30 +1,41 @@
 from rest_framework import serializers
-from .models import User, Business, Deal, SavedDeal, Notification, DealAnalytics
+from .models import User, Business, Deal, SavedDeal, Notification, DealAnalytics, OTP
 from django.contrib.gis.geos import Point
 from django.contrib.auth.password_validation import validate_password
 
+class PhoneAuthSerializer(serializers.Serializer):
+    """
+    Serializer for phone number authentication (login/register).
+    """
+    phone = serializers.CharField(max_length=32)
+    role = serializers.ChoiceField(choices=User.ROLE_CHOICES, required=False)
+
+class OTPVerificationSerializer(serializers.Serializer):
+    """
+    Serializer for OTP verification.
+    """
+    phone = serializers.CharField(max_length=32)
+    otp_code = serializers.CharField(max_length=6)
+    role = serializers.ChoiceField(choices=User.ROLE_CHOICES, required=False)
+    first_name = serializers.CharField(max_length=30, required=False)
+    last_name = serializers.CharField(max_length=30, required=False)
+
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
-    password2 = serializers.CharField(write_only=True, required=True)
+    phone = serializers.CharField(max_length=32, unique=True)
+    role = serializers.ChoiceField(choices=User.ROLE_CHOICES)
 
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'role', 'phone', 'password', 'password2',
-            'preferences', 'location', 'notifications_push', 'first_name', 'last_name'
+            'id', 'phone', 'role', 'first_name', 'last_name',
+            'preferences', 'location', 'notifications_push'
         ]
-        extra_kwargs = {'password': {'write_only': True}, 'password2': {'write_only': True}}
-
-    def validate(self, attrs):
-        if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({'password': "Passwords don't match."})
-        return attrs
+        read_only_fields = ['id']
 
     def create(self, validated_data):
-        validated_data.pop('password2')
-        password = validated_data.pop('password')
+        # Create user with phone as username
+        validated_data['username'] = validated_data['phone']
         user = User(**validated_data)
-        user.set_password(password)
         user.save()
         return user
 
@@ -32,10 +43,10 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'role', 'phone', 'preferences',
+            'id', 'phone', 'role', 'preferences',
             'location', 'notifications_push', 'first_name', 'last_name'
         ]
-        read_only_fields = ['id', 'username', 'email']
+        read_only_fields = ['id', 'phone']
 
 class BusinessSerializer(serializers.ModelSerializer):
     owner_user = serializers.PrimaryKeyRelatedField(read_only=True)

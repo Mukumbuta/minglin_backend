@@ -1,9 +1,13 @@
 from django.contrib.gis.db import models
 from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
+from datetime import timedelta
+import random
+import string
 
 class User(AbstractUser):
     """
-    Custom user model for minglin.
+    Custom user model for minglin with phone-based authentication.
     Extends Django's AbstractUser and adds extra fields.
     """
     ROLE_CHOICES = (
@@ -15,10 +19,78 @@ class User(AbstractUser):
     preferences = models.JSONField(default=list, blank=True)
     location = models.PointField(geography=True, null=True, blank=True)
     notifications_push = models.BooleanField(default=True)
-    # name, email, password, etc. are inherited from AbstractUser
+    # Remove email requirement - use phone as username
+    email = models.EmailField(blank=True, null=True)
+    
+    # Override username to use phone number
+    username = models.CharField(max_length=32, unique=True, default='')
+    
+    def save(self, *args, **kwargs):
+        if not self.username:
+            self.username = self.phone
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.username} ({self.role})"
+        return f"{self.phone} ({self.role})"
+
+class OTP(models.Model):
+    """
+    OTP model for phone verification.
+    """
+    phone = models.CharField(max_length=32)
+    otp_code = models.CharField(max_length=6)
+    is_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['phone', 'created_at']),
+        ]
+    
+    def __str__(self):
+        return f"OTP for {self.phone}"
+    
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+    
+    @classmethod
+    def generate_otp(cls, phone):
+        """Generate a new OTP for the given phone number."""
+        # Delete any existing OTPs for this phone
+        cls.objects.filter(phone=phone).delete()
+        
+        # Generate 6-digit OTP
+        otp_code = ''.join(random.choices(string.digits, k=6))
+        
+        # Create OTP with 10 minutes expiry
+        otp = cls.objects.create(
+            phone=phone,
+            otp_code=otp_code,
+            expires_at=timezone.now() + timedelta(minutes=10)
+        )
+        
+        return otp
+    
+    @classmethod
+    def verify_otp(cls, phone, otp_code):
+        """Verify OTP for the given phone number."""
+        try:
+            otp = cls.objects.get(
+                phone=phone,
+                otp_code=otp_code,
+                is_verified=False
+            )
+            
+            if otp.is_expired():
+                return None, "OTP has expired"
+            
+            otp.is_verified = True
+            otp.save()
+            return otp, None
+            
+        except cls.DoesNotExist:
+            return None, "Invalid OTP"
 
 class Business(models.Model):
     """

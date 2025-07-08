@@ -12,9 +12,9 @@ router.register(r'notifications', views.NotificationViewSet, basename='notificat
 urlpatterns = [
     # Healthcheck endpoint for SRE/monitoring
     path('healthcheck/', views.healthcheck, name='healthcheck'),
-    # Auth endpoints
-    path('auth/register/', views.RegisterView.as_view(), name='register'),
-    path('auth/login/', views.LoginView.as_view(), name='login'),
+    # Phone-based Auth endpoints
+    path('auth/send-otp/', views.SendOTPView.as_view(), name='send-otp'),
+    path('auth/verify-otp/', views.VerifyOTPView.as_view(), name='verify-otp'),
     # Deals customer/public endpoints
     path('deals/customer/', views.CustomerDealsView.as_view(), name='customer-deals'),
     path('deals/my/', views.MyDealsView.as_view(), name='my-deals'),

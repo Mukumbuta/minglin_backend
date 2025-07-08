@@ -3,10 +3,11 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
-from .models import User, Business, Deal, SavedDeal, Notification, DealAnalytics
+from .models import User, Business, Deal, SavedDeal, Notification, DealAnalytics, OTP
 from .serializers import (
     RegisterSerializer, UserSerializer, BusinessSerializer, DealSerializer,
-    SavedDealSerializer, NotificationSerializer, DealAnalyticsSerializer
+    SavedDealSerializer, NotificationSerializer, DealAnalyticsSerializer,
+    PhoneAuthSerializer, OTPVerificationSerializer
 )
 from rest_framework import viewsets, generics, status, permissions, serializers
 from django.contrib.gis.db.models.functions import Distance
@@ -16,6 +17,7 @@ from django.utils import timezone
 import logging
 from django.http import JsonResponse
 from datetime import datetime, timedelta
+from utils import notify
 
 logger = logging.getLogger('api')
 
@@ -30,41 +32,108 @@ def healthcheck(request):
     """
     return Response({'status': 'Minglin backend is running'})
 
-# Auth endpoints
-class RegisterView(generics.CreateAPIView):
+# Phone-based Auth endpoints
+class SendOTPView(generics.GenericAPIView):
     """
-    User registration endpoint.
+    Send OTP to phone number for authentication.
     """
-    serializer_class = RegisterSerializer
-    permission_classes = [AllowAny]
-
-    def create(self, request, *args, **kwargs):
-        logger.info(f"User registration attempt: {request.data.get('username', 'unknown')}")
-        try:
-            response = super().create(request, *args, **kwargs)
-            logger.info(f"User registration successful: {response.data.get('id')}")
-            return response
-        except Exception as e:
-            logger.error(f"User registration failed: {str(e)}")
-            raise
-
-class LoginView(generics.GenericAPIView):
-    """
-    User login endpoint. Returns user info and token (to be implemented).
-    """
-    serializer_class = UserSerializer
+    serializer_class = PhoneAuthSerializer
     permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
-        username = request.data.get('username')
-        logger.info(f"Login attempt: {username}")
-        # Placeholder: implement JWT authentication
-        user = authenticate(request, username=username, password=request.data.get('password'))
-        if user:
-            logger.info(f"Login successful: {user.id}")
-            return Response(UserSerializer(user).data)
-        logger.warning(f"Login failed: {username}")
-        return Response({'detail': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        phone = serializer.validated_data['phone']
+        role = serializer.validated_data.get('role', 'user')
+        
+        logger.info(f"OTP request for phone: {phone}, role: {role}")
+        
+        try:
+            # Generate OTP
+            otp = OTP.generate_otp(phone)
+            
+            notify(phone, f'Your OTP is {otp.otp_code}')
+            logger.info(f"OTP generated for {phone}: {otp.otp_code}")
+            
+            return Response({
+                'message': 'OTP sent successfully',
+                'phone': phone,
+                'role': role,
+                'otp_code': otp.otp_code  # Remove this in production
+            })
+            
+        except Exception as e:
+            logger.error(f"OTP generation failed: {str(e)}")
+            return Response(
+                {'error': 'Failed to send OTP'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class VerifyOTPView(generics.GenericAPIView):
+    """
+    Verify OTP and authenticate user.
+    """
+    serializer_class = OTPVerificationSerializer
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        phone = serializer.validated_data['phone']
+        otp_code = serializer.validated_data['otp_code']
+        role = serializer.validated_data.get('role', 'user')
+        first_name = serializer.validated_data.get('first_name', '')
+        last_name = serializer.validated_data.get('last_name', '')
+        
+        logger.info(f"OTP verification attempt for phone: {phone}")
+        
+        try:
+            # Verify OTP
+            otp, error = OTP.verify_otp(phone, otp_code)
+            
+            if error:
+                return Response({'error': error}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Check if user exists
+            user, created = User.objects.get_or_create(
+                phone=phone,
+                defaults={
+                    'username': phone,
+                    'role': role,
+                    'first_name': first_name,
+                    'last_name': last_name,
+                }
+            )
+            
+            if not created:
+                # Update user info if provided
+                if first_name:
+                    user.first_name = first_name
+                if last_name:
+                    user.last_name = last_name
+                if role:
+                    user.role = role
+                user.save()
+            
+            # TODO: Generate JWT token here
+            # For now, return user data
+            logger.info(f"User authenticated successfully: {user.id}")
+            
+            return Response({
+                'message': 'Authentication successful',
+                'user': UserSerializer(user).data,
+                'token': f'token_{user.id}_{phone}',  # Placeholder token
+                'is_new_user': created
+            })
+            
+        except Exception as e:
+            logger.error(f"OTP verification failed: {str(e)}")
+            return Response(
+                {'error': 'Authentication failed'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # User endpoints
 class UserViewSet(viewsets.ModelViewSet):
