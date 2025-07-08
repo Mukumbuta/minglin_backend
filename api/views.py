@@ -18,6 +18,7 @@ import logging
 from django.http import JsonResponse
 from datetime import datetime, timedelta
 from .utils import notify
+from rest_framework_simplejwt.tokens import RefreshToken
 
 logger = logging.getLogger('api')
 
@@ -117,14 +118,17 @@ class VerifyOTPView(generics.GenericAPIView):
                     user.role = role
                 user.save()
             
-            # TODO: Generate JWT token here
-            # For now, return user data
+            # Generate JWT tokens
+            refresh = RefreshToken.for_user(user)
+            access_token = refresh.access_token
+            
             logger.info(f"User authenticated successfully: {user.id}")
             
             return Response({
                 'message': 'Authentication successful',
                 'user': UserSerializer(user).data,
-                'token': f'token_{user.id}_{phone}',  # Placeholder token
+                'token': str(access_token),
+                'refresh': str(refresh),
                 'is_new_user': created
             })
             
