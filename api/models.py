@@ -204,4 +204,37 @@ class DealAnalytics(models.Model):
     def __str__(self):
         return f"{self.deal.title} - {self.action_type}"
 
+class CustomerRequest(models.Model):
+    """
+    Model for customer requests (what they are looking for).
+    """
+    URGENCY_CHOICES = (
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('urgent', 'Urgent'),
+    )
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='customer_requests')
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    category = models.CharField(max_length=128, blank=True)
+    location = models.PointField(geography=True, null=True, blank=True)
+    budget_min = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    budget_max = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    urgency = models.CharField(max_length=20, choices=URGENCY_CHOICES, default='medium')
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['category']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.title} by {self.user.username}"
+
 # See README.md and inline comments for documentation.

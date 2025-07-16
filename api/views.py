@@ -4,11 +4,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.contrib.auth import authenticate
-from .models import User, Business, Deal, SavedDeal, Notification, DealAnalytics, OTP
+from .models import User, Business, Deal, SavedDeal, Notification, DealAnalytics, OTP, CustomerRequest
 from .serializers import (
     RegisterSerializer, UserSerializer, BusinessSerializer, DealSerializer,
     SavedDealSerializer, NotificationSerializer, DealAnalyticsSerializer,
-    PhoneAuthSerializer, OTPVerificationSerializer
+    PhoneAuthSerializer, OTPVerificationSerializer, CustomerRequestSerializer
 )
 from rest_framework import viewsets, generics, status, permissions, serializers
 from django.contrib.gis.db.models.functions import Distance
@@ -832,3 +832,113 @@ def get_client_ip(request):
 
 # Add more API views here (auth, users, businesses, deals, etc.)
 # See README.md and inline comments for documentation.
+
+# Customer Request endpoints
+class CustomerRequestViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for customer requests (what customers are looking for).
+    """
+    serializer_class = CustomerRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Customers can see their own requests, businesses can see all active requests
+        if self.request.user.role == 'business':
+            return CustomerRequest.objects.filter(is_active=True)
+        else:
+            return CustomerRequest.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        request = serializer.save(user=self.request.user)
+        
+        # Send notifications to all businesses about the new customer request
+        try:
+            self.send_request_notifications(request)
+        except Exception as e:
+            logger.error(f"Failed to send request notifications: {str(e)}")
+        
+        logger.info(f"Customer request created: {request.id} by user {self.request.user.id}")
+    
+    def send_request_notifications(self, customer_request):
+        """Send SMS notifications to all businesses about the new customer request."""
+        from .utils import notify
+        
+        # Get all business users
+        business_users = User.objects.filter(role='business')
+        
+        # Create notification message
+        customer_name = f"{customer_request.user.first_name} {customer_request.user.last_name}".strip() or customer_request.user.phone
+        request_title = customer_request.title
+        category = customer_request.category or "General"
+        
+        business_message = f"New customer request: {customer_name} is looking for {request_title} in {category}. Check your Minglin app for details."
+        
+        # Send SMS to each business
+        for business_user in business_users:
+            try:
+                if business_user.phone:
+                    # Clean phone number (remove + if present, notify function will add 26 prefix)
+                    clean_phone = business_user.phone
+                    if business_user.phone.startswith('+'):
+                        clean_phone = business_user.phone[1:]
+                    
+                    notify(clean_phone, business_message)
+                    logger.info(f"Request notification sent to {business_user.phone} for request {customer_request.id}")
+            except Exception as e:
+                logger.error(f"Failed to send SMS to {business_user.phone}: {str(e)}")
+        
+        logger.info(f"Request notifications sent to {business_users.count()} businesses")
+
+# Business Request Notifications endpoint
+class BusinessRequestNotificationsView(generics.ListAPIView):
+    """
+    Get customer requests for business owners to see what customers are looking for.
+    """
+    serializer_class = CustomerRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Only business users can access this
+        if self.request.user.role != 'business':
+            return CustomerRequest.objects.none()
+        
+        queryset = CustomerRequest.objects.filter(is_active=True)
+        
+        # Filter by category if provided
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(category=category)
+        
+        # Filter by location and radius if provided
+        lat = self.request.query_params.get('lat')
+        lon = self.request.query_params.get('lon')
+        radius = self.request.query_params.get('radius', 10)  # Default 10km
+        
+        if lat and lon:
+            user_location = Point(float(lon), float(lat))
+            queryset = queryset.filter(
+                location__distance_lte=(user_location, float(radius))
+            ).annotate(
+                distance=Distance('location', user_location)
+            ).order_by('distance')
+        
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        data = serializer.data
+        
+        # Calculate distances if user has location
+        user_lat = request.query_params.get('lat')
+        user_lon = request.query_params.get('lon')
+        
+        if user_lat and user_lon:
+            user_location = Point(float(user_lon), float(user_lat))
+            for request_data in data:
+                if request_data.get('location'):
+                    request_location = Point(request_data['location']['lon'], request_data['location']['lat'])
+                    distance_km = user_location.distance(request_location) * 111  # Convert to km
+                    request_data['distance'] = round(distance_km, 1)
+        
+        return Response(data)

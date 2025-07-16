@@ -8,6 +8,7 @@ router.register(r'businesses', views.BusinessViewSet, basename='business')
 router.register(r'deals', views.DealViewSet, basename='deal')
 router.register(r'saved-deals', views.SavedDealViewSet, basename='saved-deal')
 router.register(r'notifications', views.NotificationViewSet, basename='notification')
+router.register(r'customer-requests', views.CustomerRequestViewSet, basename='customer-request')
 
 urlpatterns = [
     # Healthcheck endpoint for SRE/monitoring
@@ -31,6 +32,8 @@ urlpatterns = [
     path('businesses/logo/', views.BusinessLogoUploadView.as_view(), name='business-logo-upload'),
     # Deal interaction tracking
     path('deals/<int:deal_id>/interaction/', views.record_deal_interaction, name='record-deal-interaction'),
+    # Customer request endpoints
+    path('business/requests/', views.BusinessRequestNotificationsView.as_view(), name='business-requests'),
     # Main RESTful endpoints
     path('', include(router.urls)),
 ]

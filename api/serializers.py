@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Business, Deal, SavedDeal, Notification, DealAnalytics, OTP
+from .models import User, Business, Deal, SavedDeal, Notification, DealAnalytics, OTP, CustomerRequest
 from django.contrib.gis.geos import Point
 from django.contrib.auth.password_validation import validate_password
 
@@ -152,5 +152,36 @@ class DealAnalyticsSerializer(serializers.ModelSerializer):
             'user_agent', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
+
+class CustomerRequestSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    location = serializers.SerializerMethodField()
+    user_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomerRequest
+        fields = [
+            'id', 'user', 'user_name', 'title', 'description', 'category',
+            'location', 'budget_min', 'budget_max', 'urgency', 'created_at',
+            'is_active', 'expires_at'
+        ]
+        read_only_fields = ['id', 'user', 'created_at']
+
+    def get_location(self, obj):
+        if obj.location:
+            return {'lat': obj.location.y, 'lon': obj.location.x}
+        return None
+
+    def get_user_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.user.phone
+
+    def to_internal_value(self, data):
+        # Accept lat/lon as input for location
+        ret = super().to_internal_value(data)
+        lat = data.get('latitude') or data.get('lat')
+        lon = data.get('longitude') or data.get('lon')
+        if lat is not None and lon is not None:
+            ret['location'] = Point(float(lon), float(lat))
+        return ret
 
 # See README.md and inline comments for documentation. 

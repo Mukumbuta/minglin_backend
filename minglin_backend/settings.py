@@ -187,8 +187,8 @@ CORS_ALLOW_ALL_ORIGINS = True
 # JWT settings
 from datetime import timedelta
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),  # 7 days access token
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=36500),  # 100 years refresh token
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': False,
