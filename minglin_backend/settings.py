@@ -189,7 +189,7 @@ from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=7),  # 7 days access token
     'REFRESH_TOKEN_LIFETIME': timedelta(days=36500),  # 100 years refresh token
-    'ROTATE_REFRESH_TOKENS': True,
+    'ROTATE_REFRESH_TOKENS': False,  # Disable rotation to avoid blacklist issues
     'BLACKLIST_AFTER_ROTATION': False,  # Disable blacklist since it's not configured
     'UPDATE_LAST_LOGIN': False,
     'ALGORITHM': 'HS256',
