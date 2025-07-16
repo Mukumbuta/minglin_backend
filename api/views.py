@@ -942,3 +942,42 @@ class BusinessRequestNotificationsView(generics.ListAPIView):
                     request_data['distance'] = round(distance_km, 1)
         
         return Response(data)
+
+# Platform Statistics endpoint
+class PlatformStatsView(generics.GenericAPIView):
+    """
+    Get platform statistics for business users.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Only business users can access this
+        if request.user.role != 'business':
+            return Response({'message': 'Access denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            # Get total customers (users with role 'user')
+            total_customers = User.objects.filter(role='user').count()
+            
+            # Get total businesses (users with role 'business')
+            total_businesses = User.objects.filter(role='business').count()
+            
+            # Get total active deals
+            total_active_deals = Deal.objects.filter(is_active=True, end_time__gte=timezone.now()).count()
+            
+            # Get total customer requests
+            total_customer_requests = CustomerRequest.objects.filter(is_active=True).count()
+            
+            return Response({
+                'total_customers': total_customers,
+                'total_businesses': total_businesses,
+                'total_active_deals': total_active_deals,
+                'total_customer_requests': total_customer_requests,
+                'last_updated': timezone.now().isoformat(),
+            })
+        except Exception as e:
+            logger.error(f"Error getting platform stats: {str(e)}")
+            return Response(
+                {'error': 'Failed to get platform statistics'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

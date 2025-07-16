@@ -34,6 +34,8 @@ urlpatterns = [
     path('deals/<int:deal_id>/interaction/', views.record_deal_interaction, name='record-deal-interaction'),
     # Customer request endpoints
     path('business/requests/', views.BusinessRequestNotificationsView.as_view(), name='business-requests'),
+    # Platform statistics endpoint
+    path('platform/stats/', views.PlatformStatsView.as_view(), name='platform-stats'),
     # Main RESTful endpoints
     path('', include(router.urls)),
 ]
