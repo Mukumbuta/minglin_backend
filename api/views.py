@@ -284,6 +284,16 @@ class DealViewSet(viewsets.ModelViewSet):
         else:
             deal = serializer.save()
         
+        # Try to extract GPS coordinates from image if no location is provided
+        if deal.image and not deal.location:
+            from .utils import extract_gps_from_image
+            lat, lon = extract_gps_from_image(deal.image)
+            if lat is not None and lon is not None:
+                from django.contrib.gis.geos import Point
+                deal.location = Point(lon, lat)  # Note: Point takes (x, y) which is (lon, lat)
+                deal.save()
+                logger.info(f"GPS coordinates extracted from image for deal {deal.id}: {lat}, {lon}")
+        
         logger.info(f"Deal created: {deal.id} by user {self.request.user.id}")
         
         # Send SMS notifications to all customers

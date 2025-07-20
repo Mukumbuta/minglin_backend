@@ -77,12 +77,13 @@ class DealSerializer(serializers.ModelSerializer):
     )
     location = serializers.SerializerMethodField()
     image = serializers.ImageField(required=False, allow_null=True, max_length=None)
+    image_url = serializers.SerializerMethodField()
     is_saved = serializers.SerializerMethodField()
 
     class Meta:
         model = Deal
         fields = [
-            'id', 'business', 'business_id', 'title', 'description', 'image',
+            'id', 'business', 'business_id', 'title', 'description', 'image', 'image_url',
             'category', 'cta', 'start_time', 'end_time', 'location',
             'is_active', 'views', 'clicks', 'created_at', 'updated_at', 'is_saved'
         ]
@@ -91,6 +92,14 @@ class DealSerializer(serializers.ModelSerializer):
     def get_location(self, obj):
         if obj.location:
             return {'lat': obj.location.y, 'lon': obj.location.x}
+        return None
+
+    def get_image_url(self, obj):
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
         return None
 
     def get_is_saved(self, obj):
