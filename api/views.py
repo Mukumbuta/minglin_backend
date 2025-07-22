@@ -405,6 +405,7 @@ class CustomerDealsView(generics.ListAPIView):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         data = serializer.data
+        logger.debug(f"CustomerDealsView response body: {data}")
         
         # Calculate distances if user has location
         user_lat = request.query_params.get('lat')
@@ -518,6 +519,13 @@ class MyDealsView(generics.ListAPIView):
     def get_queryset(self):
         businesses = Business.objects.filter(owner_user=self.request.user)  # type: ignore[attr-defined]
         return Deal.objects.filter(business__in=businesses)  # type: ignore[attr-defined]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        data = serializer.data
+        logger.debug(f"MyDealsView response body: {data}")
+        return Response(data)
 
 def custom_exception_handler(exc, context):
     """
