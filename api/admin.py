@@ -1,37 +1,52 @@
 from django.contrib import admin
-from .models import User, Business, Deal, SavedDeal, Notification, DealAnalytics
-
-@admin.register(User)
-class UserAdmin(admin.ModelAdmin):
-    list_display = ['username', 'email', 'role', 'phone', 'date_joined']
-    list_filter = ['role', 'date_joined']
-    search_fields = ['username', 'email', 'phone']
-
-@admin.register(Business)
-class BusinessAdmin(admin.ModelAdmin):
-    list_display = ['name', 'owner_user', 'contact_phone']
-    search_fields = ['name', 'description']
+from django.contrib.gis.admin import OSMGeoAdmin
+from .models import Deal, Business, User, SavedDeal, Notification, DealAnalytics, OTP, CustomerRequest
 
 @admin.register(Deal)
 class DealAdmin(admin.ModelAdmin):
-    list_display = ['title', 'business', 'category', 'is_active', 'views', 'clicks', 'created_at']
+    list_display = ['title', 'business', 'category', 'is_active', 'created_at']
     list_filter = ['is_active', 'category', 'created_at']
     search_fields = ['title', 'description', 'business__name']
+    readonly_fields = ['views', 'clicks', 'created_at', 'updated_at']
+    
+    # Disable the map widget for the location field
+    def formfield_for_dbfield(self, db_field, **kwargs):
+        if db_field.name == 'location':
+            kwargs['widget'] = admin.widgets.AdminTextareaWidget
+        return super().formfield_for_dbfield(db_field, **kwargs)
+
+@admin.register(Business)
+class BusinessAdmin(admin.ModelAdmin):
+    list_display = ['name', 'owner_user', 'category', 'contact_phone']
+    search_fields = ['name', 'owner_user__phone']
+
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin):
+    list_display = ['phone', 'role', 'first_name', 'last_name']
+    list_filter = ['role']
+    search_fields = ['phone', 'first_name', 'last_name']
 
 @admin.register(SavedDeal)
 class SavedDealAdmin(admin.ModelAdmin):
     list_display = ['user', 'deal', 'saved_at']
     list_filter = ['saved_at']
-    search_fields = ['user__username', 'deal__title']
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
     list_display = ['user', 'title', 'notification_type', 'is_read', 'created_at']
     list_filter = ['notification_type', 'is_read', 'created_at']
-    search_fields = ['user__username', 'title', 'message']
 
 @admin.register(DealAnalytics)
 class DealAnalyticsAdmin(admin.ModelAdmin):
-    list_display = ['deal', 'user', 'action_type', 'ip_address', 'created_at']
+    list_display = ['deal', 'user', 'action_type', 'created_at']
     list_filter = ['action_type', 'created_at']
-    search_fields = ['deal__title', 'user__username', 'ip_address']
+
+@admin.register(OTP)
+class OTPAdmin(admin.ModelAdmin):
+    list_display = ['phone', 'otp_code', 'created_at', 'expires_at', 'is_used']
+    list_filter = ['is_used', 'created_at']
+
+@admin.register(CustomerRequest)
+class CustomerRequestAdmin(admin.ModelAdmin):
+    list_display = ['user', 'title', 'category', 'is_active', 'created_at']
+    list_filter = ['category', 'is_active', 'created_at']

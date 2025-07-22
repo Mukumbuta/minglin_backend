@@ -1,51 +1,40 @@
+from custom_environs import environment
 import requests
+import random
+import string
+import time
 import logging
-from django.conf import settings
 
 logger = logging.getLogger('api')
 
-def notify(phone: str, message: str) -> bool:
-    """
-    Send SMS notification using Africa's Talking API.
-    Returns True if successful, False otherwise.
-    """
+headers = {
+    'Content-Type': 'application/json'
+}
+
+def notify(phone_number, msg):
+    phone_number_format = f'26{phone_number}'
+    timestamp = int(time.time() * 1000)
+    random_component = random.randint(1000, 9999)
+    msg_ref = f'{timestamp}{random_component}'
+  
+    payload = {
+        'username': environment.env_vars.get('PROBASE_USERNAME'),
+        'password': environment.env_vars.get('PROBASE_PASSWORD'),
+        'senderid': environment.env_vars.get('PROBASE_SENDER_ID'),
+        'source': environment.env_vars.get('PROBASE_SOURCE'),
+        'recipient': [phone_number_format],
+        'message': f'{msg}',
+        'msg_ref': msg_ref,
+    }
+
     try:
-        # Africa's Talking API configuration
-        api_key = settings.AT_API_KEY if hasattr(settings, 'AT_API_KEY') else 'test_key'
-        username = settings.AT_USERNAME if hasattr(settings, 'AT_USERNAME') else 'sandbox'
-        
-        # Prepare the request
-        url = 'https://api.africastalking.com/version1/messaging'
-        headers = {
-            'ApiKey': api_key,
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json'
-        }
-        
-        # Add country code if not present
-        if not phone.startswith('+'):
-            phone = '+26' + phone  # Zambia country code
-        
-        data = {
-            'username': username,
-            'to': phone,
-            'message': message,
-            'from': 'Minglin'
-        }
-        
-        # Make the request
-        response = requests.post(url, headers=headers, data=data)
-        
-        if response.status_code == 201:
-            logger.info(f"SMS sent successfully to {phone}")
-            return True
-        else:
-            logger.error(f"Failed to send SMS to {phone}: {response.status_code} - {response.text}")
-            return False
-            
+        response = requests.post(f"{environment.env_vars.get('PROBASE_URL')}", json=payload, headers=headers)
+        results = response.text
+        logger.info(f"SMS sent successfully to {phone_number}: {results}")
+        return results
     except Exception as e:
-        logger.error(f"Error sending SMS to {phone}: {str(e)}")
-        return False
+        logger.error(f"Error sending SMS to {phone_number}: {str(e)}")
+        return None
 
 def extract_gps_from_image(image_file):
     """
