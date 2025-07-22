@@ -37,6 +37,12 @@ DEBUG = env('DEBUG')
 # ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
 
 ALLOWED_HOSTS = ['*']
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://api.tumingle.com",
+    "https://api.tumingle.com",
+]
 
 # Application definition
 
