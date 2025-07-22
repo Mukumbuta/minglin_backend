@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.contrib.gis.admin import OSMGeoAdmin
 from .models import Deal, Business, User, SavedDeal, Notification, DealAnalytics, OTP, CustomerRequest
 
 @admin.register(Deal)
