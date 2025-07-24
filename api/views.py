@@ -20,6 +20,9 @@ from django.http import JsonResponse
 from datetime import datetime, timedelta
 from .utils import notify
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView as SimpleJWTTokenRefreshView
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from django.contrib.auth import get_user_model
 
 logger = logging.getLogger('api')
 
@@ -227,7 +230,17 @@ class BusinessViewSet(viewsets.ModelViewSet):
         return Business.objects.filter(owner_user=self.request.user)  # type: ignore[attr-defined]
 
     def perform_create(self, serializer):
-        serializer.save(owner_user=self.request.user)
+        business = serializer.save(owner_user=self.request.user)
+        # Notify all users who want new_business notifications
+        for user in User.objects.filter(role='user'):
+            if user_wants_notification(user, 'new_business'):
+                Notification.objects.create(
+                    user=user,
+                    title='New Business Joined!',
+                    message=f'{business.name} has joined Minglin. Check out their deals!',
+                    notification_type='new_business',
+                )
+        return business
 
     @action(detail=False, methods=['get'])
     def me(self, request):
@@ -320,6 +333,8 @@ class DealViewSet(viewsets.ModelViewSet):
         # Send SMS to each customer
         for customer in customers:
             try:
+                if not user_wants_notification(customer, 'new_deal'):
+                    continue
                 if customer.phone:
                     # Clean phone number (remove + if present, notify function will add 26 prefix)
                     clean_phone = customer.phone
@@ -327,6 +342,13 @@ class DealViewSet(viewsets.ModelViewSet):
                         clean_phone = customer.phone[1:]
                     
                     notify(clean_phone, customer_message)
+                    Notification.objects.create(
+                        user=customer,
+                        title='New Deal!',
+                        message=customer_message,
+                        notification_type='new_deal',
+                        related_deal=deal
+                    )
                     notify(deal.business.contact_phone, business_message)
                     logger.info(f"SMS notification sent to {customer.phone} for deal {deal.id}")
             except Exception as e:
@@ -363,6 +385,17 @@ class DealViewSet(viewsets.ModelViewSet):
             return Response({'message': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
         
         logger.info(f"Deal deleted: {deal.id} by user {request.user.id}")
+        # Notify users who saved this deal and want deal_removed notifications
+        for saved in deal.saved_by.all():
+            user = saved.user
+            if user_wants_notification(user, 'deal_removed'):
+                Notification.objects.create(
+                    user=user,
+                    title='Deal Removed',
+                    message=f'A deal you saved ("{deal.title}") has been removed.',
+                    notification_type='deal_removed',
+                    related_deal=deal
+                )
         deal.delete()
         return Response({'message': 'Deal removed'})
 
@@ -999,3 +1032,32 @@ class PlatformStatsView(generics.GenericAPIView):
                 {'error': 'Failed to get platform statistics'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+# Utility to check user notification preferences
+
+def user_wants_notification(user, notification_type):
+    prefs = getattr(user, 'preferences', {})
+    if isinstance(prefs, dict):
+        notif_prefs = prefs.get('notifications', {})
+        # Map notification_type to preference key
+        mapping = {
+            'new_deal': 'dealAlerts',
+            'deal_expiring': 'expiringDeals',
+            'deal_expiring_soon': 'expiringDeals',
+            'new_business': 'newBusinesses',
+            'deal_removed': 'dealAlerts',
+        }
+        pref_key = mapping.get(notification_type, None)
+        if pref_key is not None:
+            return notif_prefs.get(pref_key, True)
+    return True  # Default to True if not set
+
+class TokenRefreshView(SimpleJWTTokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        try:
+            return super().post(request, *args, **kwargs)
+        except get_user_model().DoesNotExist:
+            return Response({'detail': 'User not found or inactive.'}, status=status.HTTP_401_UNAUTHORIZED)
+        except Exception as e:
+            logger.error(f"Exception in TokenRefreshView: {e}")
+            return Response({'detail': 'Token refresh failed.'}, status=status.HTTP_401_UNAUTHORIZED)

@@ -160,6 +160,9 @@ class Notification(models.Model):
         ('new_deal', 'New Deal'),
         ('deal_clicked', 'Deal Clicked'),
         ('system', 'System'),
+        ('new_business', 'New Business'),
+        ('deal_removed', 'Deal Removed'),
+        ('deal_expiring_soon', 'Deal Expiring Soon'),
     )
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
