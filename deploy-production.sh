@@ -38,6 +38,11 @@ POSTGRES_PASSWORD=Minglin2025!
 CORS_ALLOW_ALL_ORIGINS=True
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
+PROBASE_URL=https://probasesms.com/api/json/multi/res/bulk/sms
+PROBASE_USERNAME=All1Zed@12\$\$
+PROBASE_PASSWORD=All1Zed@sms12\$\$
+PROBASE_SENDER_ID=Tumingle
+PROBASE_SOURCE=Tumingle
 SENTRY_DSN=
 EOF
     echo "✅ .env file created successfully"
