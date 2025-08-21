@@ -59,16 +59,35 @@ class UserSerializer(serializers.ModelSerializer):
 class BusinessSerializer(serializers.ModelSerializer):
     owner_user = serializers.PrimaryKeyRelatedField(read_only=True)
     logo_url = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
     
     class Meta:
         model = Business
-        fields = ['id', 'name', 'description', 'contact_phone', 'logo', 'logo_url', 'owner_user']
+        fields = ['id', 'name', 'description', 'contact_phone', 'address', 'location', 'logo', 'logo_url', 'owner_user']
         read_only_fields = ['id', 'owner_user']
 
     def get_logo_url(self, obj):
         if obj.logo:
-            return self.context['request'].build_absolute_uri(obj.logo.url)
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.logo.url)
+            return obj.logo.url
         return None
+
+    def get_location(self, obj):
+        if obj.location:
+            return {'lat': obj.location.y, 'lon': obj.location.x}
+        return None
+
+    def to_internal_value(self, data):
+        # Accept lat/lon as input for business location
+        ret = super().to_internal_value(data)
+        lat = data.get('latitude') or data.get('lat')
+        lon = data.get('longitude') or data.get('lon')
+        if lat is not None and lon is not None:
+            from django.contrib.gis.geos import Point
+            ret['location'] = Point(float(lon), float(lat))
+        return ret
 
 class DealSerializer(serializers.ModelSerializer):
     business = BusinessSerializer(read_only=True)

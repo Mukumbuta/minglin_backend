@@ -16,7 +16,7 @@ class DealAdmin(admin.ModelAdmin):
 
 @admin.register(Business)
 class BusinessAdmin(admin.ModelAdmin):
-    list_display = ['name', 'owner_user', 'category', 'contact_phone']
+    list_display = ['name', 'owner_user', 'contact_phone']
     search_fields = ['name', 'owner_user__phone']
 
 @admin.register(User)

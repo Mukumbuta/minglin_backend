@@ -242,32 +242,30 @@ class BusinessViewSet(viewsets.ModelViewSet):
                 )
         return business
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get', 'put'])
     def me(self, request):
         """
-        List businesses owned by the current user (equivalent to getMyBusinesses in Node.js).
+        Get or update businesses owned by the current user.
         """
-        businesses = self.get_queryset()
-        return Response(BusinessSerializer(businesses, many=True).data)
-
-    def update(self, request, *args, **kwargs):
-        """
-        Update business (equivalent to updateBusiness in Node.js).
-        """
-        business = Business.objects.filter(owner_user=request.user).first()  # type: ignore[attr-defined]
-        if not business:
-            return Response({'message': 'Business not found'}, status=status.HTTP_404_NOT_FOUND)
+        if request.method == 'GET':
+            # List businesses owned by the current user (equivalent to getMyBusinesses in Node.js).
+            businesses = self.get_queryset()
+            return Response(BusinessSerializer(businesses, many=True).data)
         
-        # Update fields if provided
-        if 'name' in request.data:
-            business.name = request.data['name']
-        if 'description' in request.data:
-            business.description = request.data['description']
-        if 'contact_phone' in request.data:
-            business.contact_phone = request.data['contact_phone']
-        
-        business.save()
-        return Response(BusinessSerializer(business).data)
+        elif request.method == 'PUT':
+            # Update business profile
+            business = Business.objects.filter(owner_user=request.user).first()  # type: ignore[attr-defined]
+            if not business:
+                return Response({'message': 'Business not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Use the serializer to handle updates properly
+            serializer = BusinessSerializer(business, data=request.data, partial=True, context={'request': request})
+            if serializer.is_valid():
+                serializer.save()
+                logger.info(f"Business profile updated: {business.id} by user {request.user.id}")
+                return Response(serializer.data)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # Deal endpoints
 class DealViewSet(viewsets.ModelViewSet):
@@ -307,6 +305,12 @@ class DealViewSet(viewsets.ModelViewSet):
                 deal.save()
                 logger.info(f"GPS coordinates extracted from image for deal {deal.id}: {lat}, {lon}")
         
+        # If still no location and business has location, use business location as fallback
+        if not deal.location and deal.business.location:
+            deal.location = deal.business.location
+            deal.save()
+            logger.info(f"Using business location as fallback for deal {deal.id}")
+        
         logger.info(f"Deal created: {deal.id} by user {self.request.user.id}")
         
         # Send SMS notifications to all customers
@@ -328,9 +332,10 @@ class DealViewSet(viewsets.ModelViewSet):
         cta_text = deal.cta if deal.cta else "Visit Store"
         
         customer_message = f"New promotion from {business_name}: {deal_title}. Open your Minglin app for details."
-        business_message = f"Promotion notifications sent to {customers.count()} customers"
+        push_notification_msg = f"New promotion from {business_name}: {deal_title}."
         
         # Send SMS to each customer
+        notification_count = 0
         for customer in customers:
             try:
                 if not user_wants_notification(customer, 'new_deal'):
@@ -345,16 +350,27 @@ class DealViewSet(viewsets.ModelViewSet):
                     Notification.objects.create(
                         user=customer,
                         title='New Deal!',
-                        message=customer_message,
+                        message=push_notification_msg,
                         notification_type='new_deal',
                         related_deal=deal
                     )
-                    notify(deal.business.contact_phone, business_message)
+                    notification_count += 1
                     logger.info(f"SMS notification sent to {customer.phone} for deal {deal.id}")
             except Exception as e:
                 logger.error(f"Failed to send SMS to {customer.phone}: {str(e)}")
         
-        logger.info(f"Deal notifications sent to {customers.count()} customers")
+        # Send confirmation message to business owner
+        if deal.business.contact_phone and notification_count > 0:
+            try:
+                business_message = f"Promotion notifications sent to {notification_count} customers"
+                clean_business_phone = deal.business.contact_phone
+                if deal.business.contact_phone.startswith('+'):
+                    clean_business_phone = deal.business.contact_phone[1:]
+                notify(clean_business_phone, business_message)
+            except Exception as e:
+                logger.error(f"Failed to send confirmation SMS to business: {str(e)}")
+        
+        logger.info(f"Deal notifications sent to {notification_count} customers")
 
     def update(self, request, *args, **kwargs):
         """

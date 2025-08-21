@@ -4,7 +4,10 @@ import random
 import string
 import time
 import logging
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 logger = logging.getLogger('api')
 
 headers = {
@@ -18,17 +21,17 @@ def notify(phone_number, msg):
     msg_ref = f'{timestamp}{random_component}'
   
     payload = {
-        'username': environment.env_vars.get('PROBASE_USERNAME'),
-        'password': environment.env_vars.get('PROBASE_PASSWORD'),
-        'senderid': environment.env_vars.get('PROBASE_SENDER_ID'),
-        'source': environment.env_vars.get('PROBASE_SOURCE'),
-        'recipient': [phone_number_format],
-        'message': f'{msg}',
-        'msg_ref': msg_ref,
+        "username": os.getenv('PROBASE_USERNAME'),
+        "password": os.getenv('PROBASE_PASSWORD'),
+        "recipient": [phone_number_format],
+        "senderid": os.getenv('PROBASE_SENDER_ID'),
+        "message": f'{msg}',
+        "source": "HopaniTest",
+        "msg_ref": msg_ref
     }
 
     try:
-        response = requests.post(f"{environment.env_vars.get('PROBASE_URL')}", json=payload, headers=headers)
+        response = requests.post(f"{os.getenv('PROBASE_URL')}", json=payload, headers=headers)
         results = response.text
         logger.info(f"SMS sent successfully to {phone_number}: {results}")
         return results

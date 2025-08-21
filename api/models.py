@@ -99,6 +99,8 @@ class Business(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     contact_phone = models.CharField(max_length=32, blank=True)
+    address = models.TextField(blank=True)  # Business address
+    location = models.PointField(geography=True, null=True, blank=True)  # Business location
     logo = models.ImageField(upload_to='business_logos/', null=True, blank=True)
     owner_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='businesses')
 
