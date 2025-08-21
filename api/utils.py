@@ -19,21 +19,50 @@ def notify(phone_number, msg):
     timestamp = int(time.time() * 1000)
     random_component = random.randint(1000, 9999)
     msg_ref = f'{timestamp}{random_component}'
+    
+    # Get credentials from environment
+    username = os.getenv('PROBASE_USERNAME')
+    password = os.getenv('PROBASE_PASSWORD')
+    sender_id = os.getenv('PROBASE_SENDER_ID')
+    url = os.getenv('PROBASE_URL')
+    
+    # Detailed debugging - show exact characters
+    logger.info(f"Raw environment variables:")
+    logger.info(f"  PROBASE_USERNAME length: {len(username) if username else 'None'}, value: '{username}'")
+    logger.info(f"  PROBASE_PASSWORD length: {len(password) if password else 'None'}, ends with: '{password[-4:] if password else 'None'}'")
+    logger.info(f"  PROBASE_SENDER_ID: '{sender_id}'")
+    logger.info(f"  PROBASE_URL: '{url}'")
+    
+    # Check for specific issues
+    if username:
+        logger.info(f"Username ends with: '{username[-2:]}' (should be '$$')")
+    if password:
+        logger.info(f"Password ends with: '{password[-2:]}' (should be '$$')")
+    
+    # Log credentials for debugging (mask password partially)
+    masked_password = f"{password[:4]}***{password[-2:]}" if password and len(password) > 6 else "***"
+    logger.info(f"Probase credentials - Username: {username}, Password: {masked_password}, SenderID: {sender_id}, URL: {url}")
   
     payload = {
-        "username": os.getenv('PROBASE_USERNAME'),
-        "password": os.getenv('PROBASE_PASSWORD'),
+        "username": username,
+        "password": password,
         "recipient": [phone_number_format],
-        "senderid": os.getenv('PROBASE_SENDER_ID'),
+        "senderid": sender_id,
         "message": f'{msg}',
         "source": "HopaniTest",
         "msg_ref": msg_ref
     }
+    
+    # Log the full payload (except password) for debugging
+    debug_payload = payload.copy()
+    debug_payload['password'] = masked_password
+    logger.info(f"SMS payload: {debug_payload}")
 
     try:
-        response = requests.post(f"{os.getenv('PROBASE_URL')}", json=payload, headers=headers)
+        response = requests.post(url, json=payload, headers=headers)
         results = response.text
-        logger.info(f"SMS sent successfully to {phone_number}: {results}")
+        logger.info(f"SMS sent to {phone_number}: {results}")
+        logger.info(f"SMS response status code: {response.status_code}")
         return results
     except Exception as e:
         logger.error(f"Error sending SMS to {phone_number}: {str(e)}")
