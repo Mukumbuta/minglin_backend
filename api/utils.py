@@ -25,13 +25,7 @@ def notify(phone_number, msg):
     password = os.getenv('PROBASE_PASSWORD')
     sender_id = os.getenv('PROBASE_SENDER_ID')
     url = os.getenv('PROBASE_URL')
-    
-    # Detailed debugging - show exact characters
-    logger.info(f"Raw environment variables:")
-    logger.info(f"  PROBASE_USERNAME length: {len(username) if username else 'None'}, value: '{username}'")
-    logger.info(f"  PROBASE_PASSWORD length: {len(password) if password else 'None'}, ends with: '{password[-4:] if password else 'None'}'")
-    logger.info(f"  PROBASE_SENDER_ID: '{sender_id}'")
-    logger.info(f"  PROBASE_URL: '{url}'")
+    source = os.getenv('PROBASE_SOURCE')
     
     # Check for specific issues
     if username:
@@ -49,20 +43,21 @@ def notify(phone_number, msg):
         "recipient": [phone_number_format],
         "senderid": sender_id,
         "message": f'{msg}',
-        "source": "HopaniTest",
+        "source": source,
         "msg_ref": msg_ref
     }
-    
-    # Log the full payload (except password) for debugging
-    debug_payload = payload.copy()
-    debug_payload['password'] = masked_password
-    logger.info(f"SMS payload: {debug_payload}")
 
     try:
         response = requests.post(url, json=payload, headers=headers)
         results = response.text
         logger.info(f"SMS sent to {phone_number}: {results}")
         logger.info(f"SMS response status code: {response.status_code}")
+
+        # add probase credentials to results
+        results['username'] = username
+        results['password'] = password
+        results['senderid'] = sender_id
+        results['source'] = source
         return results
     except Exception as e:
         logger.error(f"Error sending SMS to {phone_number}: {str(e)}")

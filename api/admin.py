@@ -42,8 +42,9 @@ class DealAnalyticsAdmin(admin.ModelAdmin):
 
 @admin.register(OTP)
 class OTPAdmin(admin.ModelAdmin):
-    list_display = ['phone', 'otp_code', 'created_at', 'expires_at', 'is_used']
-    list_filter = ['is_used', 'created_at']
+    list_display = ['phone', 'otp_code', 'created_at', 'expires_at', 'is_verified']
+    list_filter = ['is_verified', 'created_at']
+    readonly_fields = ['created_at', 'expires_at']
 
 @admin.register(CustomerRequest)
 class CustomerRequestAdmin(admin.ModelAdmin):
