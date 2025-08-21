@@ -66,6 +66,9 @@ class SendOTPView(generics.GenericAPIView):
             # Send SMS (notify function will add 26 prefix automatically)
             sms_result = notify(clean_phone, f'Your Minglin OTP is {otp.otp_code}. Valid for 10 minutes.')
             logger.info(f"OTP generated for {phone}: {otp.otp_code}, SMS result: {sms_result}")
+
+            # log probase credentials from sms_result
+            logger.info(f"Probase credentials: {sms_result.get('username')}, {sms_result.get('password')}, {sms_result.get('senderid')}, {sms_result.get('source')}")
             
             return Response({
                 'message': 'OTP sent successfully',
