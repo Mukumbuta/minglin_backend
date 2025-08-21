@@ -52,12 +52,6 @@ def notify(phone_number, msg):
         results = response.text
         logger.info(f"SMS sent to {phone_number}: {results}")
         logger.info(f"SMS response status code: {response.status_code}")
-
-        # add probase credentials to results
-        results['username'] = username
-        results['password'] = password
-        results['senderid'] = sender_id
-        results['source'] = source
         return results
     except Exception as e:
         logger.error(f"Error sending SMS to {phone_number}: {str(e)}")
