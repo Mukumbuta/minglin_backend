@@ -18,7 +18,7 @@ from django.utils import timezone
 import logging
 from django.http import JsonResponse
 from datetime import datetime, timedelta
-from .utils import notify
+from api.utils import notify
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView as SimpleJWTTokenRefreshView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
