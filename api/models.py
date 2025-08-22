@@ -96,12 +96,31 @@ class Business(models.Model):
     """
     Business profile linked to a User (owner).
     """
+    BUSINESS_CATEGORIES = (
+        ('food', 'Food & Restaurants'),
+        ('clothing', 'Clothing & Fashion'),
+        ('electronics', 'Electronics & Technology'),
+        ('services', 'Professional Services'),
+        ('health', 'Health & Medical'),
+        ('beauty', 'Beauty & Personal Care'),
+        ('home', 'Home & Garden'),
+        ('entertainment', 'Entertainment & Events'),
+        ('real_estate', 'Real Estate'),
+        ('automotive', 'Automotive'),
+        ('education', 'Education & Training'),
+        ('other', 'Other'),
+    )
+    
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     contact_phone = models.CharField(max_length=32, blank=True)
     address = models.TextField(blank=True)  # Business address
     location = models.PointField(geography=True, null=True, blank=True)  # Business location
     logo = models.ImageField(upload_to='business_logos/', null=True, blank=True)
+    categories = models.JSONField(default=list, blank=True)  # List of business categories
+    is_verified = models.BooleanField(default=False)  # Business verification status
+    verification_date = models.DateTimeField(null=True, blank=True)  # When verified
+    verification_documents = models.JSONField(default=list, blank=True)  # List of uploaded documents
     owner_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='businesses')
 
     def __str__(self):
@@ -220,6 +239,12 @@ class CustomerRequest(models.Model):
         ('urgent', 'Urgent'),
     )
     
+    CONTACT_CHOICES = (
+        ('call', 'Phone Call'),
+        ('whatsapp', 'WhatsApp'),
+        ('sms', 'SMS'),
+    )
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='customer_requests')
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -228,6 +253,7 @@ class CustomerRequest(models.Model):
     budget_min = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     budget_max = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     urgency = models.CharField(max_length=20, choices=URGENCY_CHOICES, default='medium')
+    preferred_contact = models.CharField(max_length=20, choices=CONTACT_CHOICES, default='call')
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     expires_at = models.DateTimeField(null=True, blank=True)

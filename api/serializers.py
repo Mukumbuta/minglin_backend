@@ -63,8 +63,8 @@ class BusinessSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Business
-        fields = ['id', 'name', 'description', 'contact_phone', 'address', 'location', 'logo', 'logo_url', 'owner_user']
-        read_only_fields = ['id', 'owner_user']
+        fields = ['id', 'name', 'description', 'contact_phone', 'address', 'location', 'logo', 'logo_url', 'categories', 'is_verified', 'verification_date', 'owner_user']
+        read_only_fields = ['id', 'owner_user', 'is_verified', 'verification_date']
 
     def get_logo_url(self, obj):
         if obj.logo:
@@ -190,8 +190,8 @@ class CustomerRequestSerializer(serializers.ModelSerializer):
         model = CustomerRequest
         fields = [
             'id', 'user', 'user_name', 'title', 'description', 'category',
-            'location', 'budget_min', 'budget_max', 'urgency', 'created_at',
-            'is_active', 'expires_at'
+            'location', 'budget_min', 'budget_max', 'urgency', 'preferred_contact', 
+            'created_at', 'is_active', 'expires_at'
         ]
         read_only_fields = ['id', 'user', 'created_at']
 

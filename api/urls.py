@@ -28,6 +28,9 @@ urlpatterns = [
     path('analytics/', views.AnalyticsView.as_view(), name='analytics'),
     # Search endpoints
     path('deals/search/', views.DealSearchView.as_view(), name='deal-search'),
+    # Verified businesses directory
+    path('businesses/verified/', views.VerifiedBusinessesView.as_view(), name='verified-businesses'),
+    path('businesses/<int:pk>/details/', views.BusinessDetailWithDealsView.as_view(), name='business-detail-with-deals'),
     # Business logo upload
     path('businesses/logo/', views.BusinessLogoUploadView.as_view(), name='business-logo-upload'),
     # Deal interaction tracking

@@ -770,6 +770,79 @@ class AnalyticsView(generics.GenericAPIView):
             'deals': deal_analytics  # Include deals array for frontend
         })
 
+# Verified Businesses endpoint (for customer directory)
+class VerifiedBusinessesView(generics.ListAPIView):
+    """
+    List all verified businesses for customer directory.
+    """
+    serializer_class = BusinessSerializer
+    permission_classes = [AllowAny]
+    
+    def get_queryset(self):
+        queryset = Business.objects.filter(is_verified=True).select_related('owner_user')
+        
+        # Filter by category if provided
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(categories__icontains=category.lower())
+        
+        # Filter by location if provided
+        lat = self.request.query_params.get('lat')
+        lon = self.request.query_params.get('lon')
+        radius = self.request.query_params.get('radius', 10)  # Default 10km radius
+        
+        if lat and lon:
+            user_location = Point(float(lon), float(lat))
+            queryset = queryset.filter(
+                location__distance_lte=(user_location, float(radius) * 1000)  # Convert km to meters
+            ).annotate(
+                distance=Distance('location', user_location)
+            ).order_by('distance')
+        
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        data = serializer.data
+        
+        # Add deal count for each business
+        for business_data in data:
+            business_id = business_data['id']
+            deal_count = Deal.objects.filter(
+                business_id=business_id,
+                is_active=True,
+                end_time__gte=timezone.now()
+            ).count()
+            business_data['active_deals_count'] = deal_count
+        
+        return Response(data)
+
+# Business Detail with Deals endpoint
+class BusinessDetailWithDealsView(generics.RetrieveAPIView):
+    """
+    Get business details with their active deals.
+    """
+    serializer_class = BusinessSerializer
+    permission_classes = [AllowAny]
+    queryset = Business.objects.filter(is_verified=True)
+    
+    def retrieve(self, request, *args, **kwargs):
+        business = self.get_object()
+        business_data = self.get_serializer(business).data
+        
+        # Get active deals for this business
+        deals = Deal.objects.filter(
+            business=business,
+            is_active=True,
+            end_time__gte=timezone.now()
+        ).order_by('-created_at')
+        
+        deals_data = DealSerializer(deals, many=True, context={'request': request}).data
+        business_data['deals'] = deals_data
+        
+        return Response(business_data)
+
 # Search functionality
 class DealSearchView(generics.ListAPIView):
     """
@@ -909,9 +982,29 @@ class CustomerRequestViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Customers can see their own requests, businesses can see all active requests
+        # Customers can see their own requests, businesses can see category-relevant active requests
         if self.request.user.role == 'business':
-            return CustomerRequest.objects.filter(is_active=True)
+            # Get the business profile for the current user
+            try:
+                business = Business.objects.get(owner_user=self.request.user)
+                business_categories = business.categories or []
+                
+                # If business has no categories set, show all requests (for backward compatibility)
+                if not business_categories:
+                    return CustomerRequest.objects.filter(is_active=True)
+                
+                # Filter requests by categories that match business categories
+                # Convert categories to lowercase for case-insensitive matching
+                business_categories_lower = [cat.lower() for cat in business_categories]
+                
+                return CustomerRequest.objects.filter(
+                    is_active=True,
+                    category__iregex=r'^(' + '|'.join(business_categories_lower) + ')$'
+                )
+                
+            except Business.DoesNotExist:
+                # If no business profile found, return empty queryset
+                return CustomerRequest.objects.none()
         else:
             return CustomerRequest.objects.filter(user=self.request.user)
 
