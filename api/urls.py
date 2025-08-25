@@ -31,6 +31,8 @@ urlpatterns = [
     # Verified businesses directory
     path('businesses/verified/', views.VerifiedBusinessesView.as_view(), name='verified-businesses'),
     path('businesses/<int:pk>/details/', views.BusinessDetailWithDealsView.as_view(), name='business-detail-with-deals'),
+    # Business verification
+    path('businesses/verification/', views.BusinessVerificationView.as_view(), name='business-verification'),
     # Business logo upload
     path('businesses/logo/', views.BusinessLogoUploadView.as_view(), name='business-logo-upload'),
     # Deal interaction tracking

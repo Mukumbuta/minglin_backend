@@ -818,6 +818,97 @@ class VerifiedBusinessesView(generics.ListAPIView):
         
         return Response(data)
 
+# Business Verification endpoints
+class BusinessVerificationView(generics.GenericAPIView):
+    """
+    Handle business verification process including payment.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        try:
+            business = Business.objects.get(owner_user=request.user)
+        except Business.DoesNotExist:
+            return Response({'error': 'Business not found'}, status=404)
+        
+        if business.is_verified:
+            return Response({'error': 'Business is already verified'}, status=400)
+        
+        # Verification fee (in Zambian Kwacha)
+        verification_fee = 50.00  # K50 verification fee
+        
+        # In a real implementation, this would integrate with:
+        # - MTN Mobile Money
+        # - Airtel Money  
+        # - Zamtel Kwacha
+        # - Bank transfers
+        
+        # For now, simulate payment processing
+        payment_method = request.data.get('payment_method', 'mobile_money')
+        phone_number = request.data.get('phone_number', business.contact_phone)
+        
+        # Simulate verification documents upload
+        verification_documents = request.data.get('documents', [])
+        
+        # Create verification record
+        verification_data = {
+            'fee_paid': verification_fee,
+            'payment_method': payment_method,
+            'payment_phone': phone_number,
+            'documents': verification_documents,
+            'status': 'pending_review',
+            'submitted_at': timezone.now().isoformat()
+        }
+        
+        # Update business verification status
+        business.verification_documents = verification_data
+        business.save()
+        
+        # In production, this would:
+        # 1. Send verification documents to admin panel for review
+        # 2. Process payment via mobile money API
+        # 3. Send SMS confirmation to business owner
+        # 4. Schedule automated verification for simple cases
+        
+        return Response({
+            'message': 'Verification request submitted successfully',
+            'verification_fee': verification_fee,
+            'status': 'pending_review',
+            'estimated_review_time': '1-3 business days'
+        })
+    
+    def get(self, request):
+        """
+        Get verification status and requirements
+        """
+        try:
+            business = Business.objects.get(owner_user=request.user)
+        except Business.DoesNotExist:
+            return Response({'error': 'Business not found'}, status=404)
+        
+        verification_fee = 50.00  # K50 verification fee
+        
+        return Response({
+            'is_verified': business.is_verified,
+            'verification_date': business.verification_date,
+            'verification_fee': verification_fee,
+            'currency': 'ZMW',
+            'verification_documents': business.verification_documents,
+            'required_documents': [
+                'Business Registration Certificate',
+                'Tax Clearance Certificate', 
+                'Valid ID Copy',
+                'Proof of Address',
+                'Business License (if applicable)'
+            ],
+            'payment_methods': [
+                {'id': 'mtn_mobile_money', 'name': 'MTN Mobile Money', 'fee': 2.5},
+                {'id': 'airtel_money', 'name': 'Airtel Money', 'fee': 2.0},
+                {'id': 'zamtel_kwacha', 'name': 'Zamtel Kwacha', 'fee': 2.0},
+                {'id': 'bank_transfer', 'name': 'Bank Transfer', 'fee': 0.0}
+            ]
+        })
+
 # Business Detail with Deals endpoint
 class BusinessDetailWithDealsView(generics.RetrieveAPIView):
     """
